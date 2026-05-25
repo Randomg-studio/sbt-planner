@@ -1005,32 +1005,56 @@ let CURRENT=null, editingId=null, activeTab='todas', viewMode='tablero', draftAt
 /* ===================== LOGIN ===================== */
 async function doLogin(){
   const id=document.getElementById('loginEmail').value.trim().toLowerCase();
-  const pw=document.getElementById('loginPass').value;
+  const pw=document.getElementById('loginPass').value.trim();
   const errEl=document.getElementById('loginErr');
   errEl.style.display='none';
 
-  let u=null;
-  /* Primero intentar verificar contra Supabase (datos actualizados) */
-  try{
-    const todos = await sbFetch('usuarios','GET',null,'?select=*');
-    if(todos){
-      u = todos.find(x=>
-        ((x.usuario||'').toLowerCase()===id ||
-         (x.email||'').toLowerCase()===id) && x.pass===pw);
-      if(u){
-        u={id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',nombre:u.nombre||'',
-           email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',rol:u.rol||'Lector',
-           activo:(u.activo!==false)};
-      }
-    }
-  }catch(e){
-    /* Sin conexión: usar lista local por defecto */
-    u=USERS.find(x=>
-      ((x.usuario||'').toLowerCase()===id||(x.email||'').toLowerCase()===id)&&x.pass===pw);
+  if(!id||!pw){
+    errEl.textContent='Completa tu usuario y contraseña.';
+    errEl.style.display='block'; return;
   }
 
-  if(!u){ errEl.textContent='Usuario o contraseña incorrectos.';
-    errEl.style.display='block'; return; }
+  let u=null;
+  let fuenteDatos='supabase';
+
+  /* Verificar contra Supabase */
+  try{
+    const todos = await sbFetch('usuarios','GET',null,'?select=*');
+    if(todos && todos.length>0){
+      u = todos.find(x=>{
+        const usuarioOk = (x.usuario||'').toLowerCase().trim()===id ||
+                          (x.email||'').toLowerCase().trim()===id;
+        const passOk    = (x.pass||'').trim()===pw;
+        return usuarioOk && passOk;
+      });
+      if(u){
+        /* activo: null o true = activo, false = desactivado */
+        u={id:u.id, usuario:u.usuario||'', _orig:u.usuario||'',
+           nombre:u.nombre||'', email:u.email||'',
+           pass:u.pass||'', cargo:u.cargo||'', rol:u.rol||'Lector',
+           activo: u.activo!==false};  /* null y true → activo */
+      }
+    } else {
+      fuenteDatos='local';
+    }
+  }catch(e){
+    /* Sin conexión: usar lista local */
+    fuenteDatos='local';
+    console.warn('Sin conexión a Supabase, usando datos locales:', e.message);
+  }
+
+  /* Fallback a datos locales si Supabase no respondió */
+  if(fuenteDatos==='local'){
+    const uLocal = USERS_DEFAULT.find(x=>
+      ((x.usuario||'').toLowerCase()===id||(x.email||'').toLowerCase()===id) &&
+      (x.pass||'')===pw);
+    if(uLocal) u={...uLocal, activo:true};
+  }
+
+  if(!u){
+    errEl.textContent='Usuario o contraseña incorrectos. Verifica con el administrador.';
+    errEl.style.display='block'; return;
+  }
   if(u.activo===false){
     errEl.textContent='Tu cuenta está desactivada. Contacta al administrador.';
     errEl.style.display='block'; return;
