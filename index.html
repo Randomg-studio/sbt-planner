@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -335,7 +334,11 @@
     </div>
     <div class="field">
       <label>Contraseña</label>
-      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+      <div style="position:relative;display:flex;align-items:center">
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" style="padding-right:38px">
+        <button type="button" onclick="toggleOjo('loginPass',this)"
+          style="position:absolute;right:10px;background:none;color:var(--muted);font-size:17px;padding:0;line-height:1;border:none;cursor:pointer">👁</button>
+      </div>
     </div>
     <button class="btn" onclick="doLogin()">Ingresar</button>
     <div class="err" id="loginErr">Correo o contraseña incorrectos.</div>
@@ -384,12 +387,8 @@
     <div id="view-usuarios" style="display:none">
       <div class="panel">
         <h2>Gestión de usuarios y accesos</h2>
-        <p>Solo tú (Admin) ves esta pantalla. Cada miembro entra al sistema con su
-        <b>usuario</b> y <b>contraseña</b>. El <b>correo</b> se usará para sincronizar
-        con Google Calendar (alarmas y notificaciones) y Google Drive (archivos) —
-        por eso es importante registrarlo aunque el acceso sea por usuario.</p>
-        <p style="color:var(--clay)"><b>Roles:</b> Admin (todo) · Editor (solo Responsable
-        y Estado) · Community (su panel de métricas y efemérides) · Lector (solo observa).</p>
+        <p>Modifica cualquier dato directamente en la tabla — nombre, usuario, contraseña, correo, cargo o rol. Cuando termines <b>todos</b> los cambios que quieras, haz clic en <b>"Guardar todo"</b> y se actualiza en la nube de una sola vez.</p>
+        <p style="color:var(--clay)"><b>Roles:</b> Admin (todo) · Editor (solo Responsable y Estado) · Community (métricas y efemérides) · Lector (solo observa).</p>
         <div style="overflow-x:auto">
         <table class="utable">
           <thead><tr><th>Nombre</th><th>Usuario</th><th>Contraseña</th>
@@ -397,11 +396,25 @@
           <tbody id="userRows"></tbody>
         </table>
         </div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="guardarTodosUsuarios()" id="btnGuardarUsuarios">
+            💾 Guardar todo
+          </button>
+          <span id="savedAllMsg" style="display:none;font-size:12.5px;color:#2f9e58;font-weight:600">
+            ✓ Todos los cambios guardados en la nube
+          </span>
+        </div>
         <div class="section-label">Agregar nuevo miembro</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
           <div><label>Nombre</label><input id="nuName" placeholder="Nombre" style="width:120px"></div>
           <div><label>Usuario</label><input id="nuUser" placeholder="usuario" style="width:110px"></div>
-          <div><label>Contraseña</label><input id="nuPass" placeholder="clave" value="equipo123" style="width:105px"></div>
+          <div><label>Contraseña</label>
+            <div style="position:relative;display:flex;align-items:center">
+              <input id="nuPass" type="password" placeholder="clave" value="equipo123" style="width:115px;padding-right:32px">
+              <button type="button" onclick="toggleOjo('nuPass',this)"
+                style="position:absolute;right:6px;background:none;color:var(--muted);font-size:15px;padding:0;line-height:1">👁</button>
+            </div>
+          </div>
           <div><label>Correo</label><input id="nuEmail" placeholder="correo@gmail.com" style="width:170px"></div>
           <div><label>Cargo</label>
             <select id="nuCargo" style="width:130px">
@@ -411,7 +424,7 @@
           <div><label>Rol</label>
             <select id="nuRole" style="width:110px"><option>Lector</option><option>Editor</option>
               <option>Community</option><option>Admin</option></select></div>
-          <button class="btn btn-sm" onclick="addUser()">Agregar</button>
+          <button class="btn btn-sm" onclick="addUser()">+ Agregar miembro</button>
         </div>
       </div>
       <div class="panel">
@@ -1208,29 +1221,72 @@ async function saveTask(){
 
 /* ===================== USUARIOS ===================== */
 function renderUsers(){
-  document.getElementById('userRows').innerHTML=USERS.map((u,i)=>`<tr>
-    <td><input value="${esc(u.nombre)}" onchange="USERS[${i}].nombre=this.value" style="width:100px"></td>
-    <td><input value="${esc(u.usuario||'')}" onchange="USERS[${i}].usuario=this.value.trim().toLowerCase()" style="width:95px"></td>
-    <td><input type="text" value="${esc(u.pass)}" onchange="USERS[${i}].pass=this.value" style="width:95px"></td>
-    <td><input value="${esc(u.email)}" onchange="USERS[${i}].email=this.value.trim()" style="width:175px"></td>
-    <td><select onchange="USERS[${i}].cargo=this.value">
+  document.getElementById('userRows').innerHTML=USERS.map((u,i)=>`<tr id="urow-${i}">
+    <td><input id="un-${i}"  value="${esc(u.nombre)}"   style="width:105px" placeholder="Nombre"></td>
+    <td><input id="uu-${i}"  value="${esc(u.usuario||'')}" style="width:90px" placeholder="usuario"></td>
+    <td>
+      <div style="position:relative;display:flex;align-items:center">
+        <input id="up-${i}" type="password" value="${esc(u.pass)}" style="width:110px;padding-right:28px" placeholder="contraseña">
+        <button type="button" onclick="toggleOjo('up-${i}',this)"
+          style="position:absolute;right:5px;background:none;color:var(--muted);font-size:14px;padding:0;line-height:1;border:none;cursor:pointer">👁</button>
+      </div>
+    </td>
+    <td><input id="ue-${i}"  value="${esc(u.email)}"   style="width:165px" placeholder="correo@gmail.com"></td>
+    <td><select id="uc-${i}">
       ${['Diseñador','Videógrafo / Filmaker','Community Manager','Editor de contenido','Gerente','Otro']
         .map(c=>`<option ${u.cargo===c?'selected':''}>${c}</option>`).join('')}</select></td>
-    <td><select onchange="changeRole(${i},this.value)">
+    <td><select id="ur-${i}">
       ${['Admin','Editor','Community','Lector'].map(r=>
         `<option ${u.rol===r?'selected':''}>${r}</option>`).join('')}</select></td>
   </tr>`).join('');
 }
-function changeRole(i,r){
-  USERS[i].rol=r;
-  saveUserToDB(USERS[i], i);
-  if(CURRENT && USERS[i].email===CURRENT.email){
-    CURRENT.rol=r;
-    const rt=document.getElementById('whoRole');
-    rt.textContent=r;rt.className='role-tag role-'+r;
-    buildTabs();switchTab(TABS_BY_ROLE[r][0][0]);
+
+/* Leer todos los campos de la tabla y guardar en Supabase de una sola vez */
+async function guardarTodosUsuarios(){
+  const btn = document.getElementById('btnGuardarUsuarios');
+  btn.textContent = '⏳ Guardando…'; btn.disabled = true;
+
+  /* Leer valores actuales de la tabla */
+  for(let i=0; i<USERS.length; i++){
+    const nombre  = (document.getElementById('un-'+i)||{}).value?.trim();
+    const usuario = (document.getElementById('uu-'+i)||{}).value?.trim().toLowerCase();
+    const pass    = (document.getElementById('up-'+i)||{}).value?.trim();
+    const email   = (document.getElementById('ue-'+i)||{}).value?.trim();
+    const cargo   = (document.getElementById('uc-'+i)||{}).value;
+    const rol     = (document.getElementById('ur-'+i)||{}).value;
+    if(!nombre||!usuario) continue;
+    USERS[i] = {...USERS[i], nombre, usuario, pass:pass||USERS[i].pass, email:email||'', cargo:cargo||'', rol:rol||'Lector'};
+    await saveUserToDB(USERS[i], i);
+  }
+
+  btn.textContent = '💾 Guardar todo'; btn.disabled = false;
+  const msg = document.getElementById('savedAllMsg');
+  msg.style.display = 'inline';
+  setTimeout(()=>msg.style.display='none', 4000);
+
+  /* Actualizar UI si el usuario actual cambió */
+  if(CURRENT){
+    const me = USERS.find(u=>u.email===CURRENT.email||u.usuario===CURRENT.usuario);
+    if(me){
+      CURRENT = {...CURRENT, ...me};
+      document.getElementById('whoName').textContent = me.nombre;
+      const rt = document.getElementById('whoRole');
+      rt.textContent = me.rol; rt.className = 'role-tag role-'+me.rol;
+    }
   }
 }
+
+/* Ojito para mostrar/ocultar contraseña */
+function toggleOjo(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(!inp) return;
+  if(inp.type==='password'){ inp.type='text'; btn.textContent='🙈'; }
+  else { inp.type='password'; btn.textContent='👁'; }
+}
+
+function changeRole(i,r){ /* cubierto por guardarTodosUsuarios */ }
+
+async function guardarUsuario(i){ /* legacy, no se usa */ }
 async function addUser(){
   const n=document.getElementById('nuName').value.trim();
   const us=document.getElementById('nuUser').value.trim().toLowerCase();
