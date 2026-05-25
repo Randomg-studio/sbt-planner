@@ -298,6 +298,22 @@
     .metric-row{grid-template-columns:repeat(3,1fr)}
   }
 
+  /* ---------- CALENDARIO PANEL ---------- */
+  .cal-day{background:var(--card);border:1px solid var(--line);border-radius:8px;
+    min-height:72px;padding:5px 6px;font-size:11px}
+  .cal-day.other-month{opacity:.35}
+  .cal-day.today{border-color:var(--gold);border-width:2px}
+  .cal-dn{font-weight:700;font-size:12px;margin-bottom:4px;color:var(--muted)}
+  .cal-event{border-radius:4px;padding:2px 5px;margin-bottom:2px;color:#fff;
+    font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+  .cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.05em;padding:4px 0}
+  @media(max-width:700px){
+    #view-control .stats{grid-template-columns:1fr 1fr}
+    #view-control>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  }
+
   /* ---------- LOADING OVERLAY ---------- */
   #loadingOverlay{position:fixed;inset:0;background:rgba(7,0,46,.88);
     display:none;align-items:center;justify-content:center;z-index:100;
@@ -499,20 +515,57 @@
     <div id="view-control" style="display:none">
       <div class="panel">
         <h2>Panel de control · solo Admin</h2>
-        <p>Resumen de la actividad del equipo, estadísticas y últimos movimientos.</p>
+        <p>Resumen completo de la actividad del equipo, estadísticas por semana y mes, y calendario visual de todas las tareas.</p>
       </div>
+      <!-- Filtro de período -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Ver período:</label>
+        <button class="tab active" id="pAll"   onclick="setPeriodo('all')"  >Todo</button>
+        <button class="tab"        id="pSem"   onclick="setPeriodo('sem')"  >Esta semana</button>
+        <button class="tab"        id="pMes"   onclick="setPeriodo('mes')"  >Este mes</button>
+        <button class="tab"        id="pAnterior" onclick="setPeriodo('anterior')">Mes anterior</button>
+      </div>
+      <!-- Stats dinámicas -->
       <div class="stats" id="ctrlStats"></div>
-      <div class="chart-wrap">
-        <h2>Carga de trabajo por responsable</h2>
-        <div class="barchart" id="chartResp"></div>
-      </div>
-      <div class="chart-wrap">
-        <h2>Distribución por estado</h2>
-        <div class="donut-wrap">
-          <svg id="donut" width="160" height="160" viewBox="0 0 42 42"></svg>
-          <div class="donut-legend" id="donutLegend"></div>
+      <!-- Fila de gráficos -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div class="chart-wrap" style="margin:0">
+          <h2>Carga por responsable</h2>
+          <div class="barchart" id="chartResp"></div>
+        </div>
+        <div class="chart-wrap" style="margin:0">
+          <h2>Distribución por estado</h2>
+          <div class="donut-wrap">
+            <svg id="donut" width="140" height="140" viewBox="0 0 42 42"></svg>
+            <div class="donut-legend" id="donutLegend"></div>
+          </div>
         </div>
       </div>
+      <!-- Tareas por servicio -->
+      <div class="chart-wrap">
+        <h2>Tareas por servicio / programa</h2>
+        <div class="barchart" id="chartServ"></div>
+      </div>
+      <!-- Calendario visual -->
+      <div class="chart-wrap" id="calWrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h2 style="margin:0">Calendario de tareas</h2>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-sm btn-ghost" onclick="calNav(-1)">‹ Anterior</button>
+            <span id="calLabel" style="font-family:'Fraunces',serif;font-weight:600;font-size:15px;min-width:140px;text-align:center"></span>
+            <button class="btn btn-sm btn-ghost" onclick="calNav(1)">Siguiente ›</button>
+          </div>
+        </div>
+        <!-- Leyenda -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:11.5px">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-proceso);margin-right:4px"></span>En proceso</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-programado);margin-right:4px"></span>Programado</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-publicado);margin-right:4px"></span>Público/Finalizado</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-finalizado);margin-right:4px"></span>Diseñado</span>
+        </div>
+        <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
+      </div>
+      <!-- Actividad reciente -->
       <div class="chart-wrap">
         <h2>Últimas actualizaciones del equipo</h2>
         <div class="activity" id="activityLog"></div>
@@ -535,7 +588,7 @@
         <div class="field"><label>ID</label><input id="mId" readonly class="ro"></div>
         <div class="field"><label>Estado</label>
           <select id="mEstado"><option>Sin estado</option><option>En proceso</option>
-            <option>Programado</option><option>Publicado</option><option>Finalizado</option></select>
+            <option>Programado</option><option>Público/Finalizado</option><option>Diseñado</option></select>
         </div>
       </div>
       <div class="field"><label>Objetivo / Tarea</label><textarea id="mObjetivo"></textarea></div>
@@ -814,8 +867,11 @@ async function saveUserToDB(u, idx) {
   try {
     const payload = {usuario:u.usuario,nombre:u.nombre,email:u.email,
       pass:u.pass,cargo:u.cargo,rol:u.rol};
-    if (u.id) {
-      await sbFetch('usuarios','PATCH',payload,'?id=eq.'+u.id);
+    /* Siempre usar usuario (único) como clave para PATCH — más confiable que el id numérico */
+    const existe = await sbFetch('usuarios','GET',null,'?usuario=eq.'+encodeURIComponent(u.usuario));
+    if (existe && existe.length > 0) {
+      await sbFetch('usuarios','PATCH',payload,'?usuario=eq.'+encodeURIComponent(u.usuario));
+      if (existe[0].id) USERS[idx].id = existe[0].id;
     } else {
       const res = await sbFetch('usuarios','POST',payload);
       if (res && res[0]) USERS[idx].id = res[0].id;
@@ -861,27 +917,27 @@ const EFEMERIDES_DEFAULT = [
   {fecha:'2026-08-20', nombre:'Aniversario de Tarapoto', nota:'Contenido especial de aniversario'}
 ];
 const TASKS_DEFAULT = [
-{"id":"SBT-001","fecha_pub":"18/5/2026","responsable":"Sergio","colaborador":"","area":"Filmaker","tipo":"Guion","plataforma":"Sin definir","servicio":"SBT","objetivo":"Crear un guion para el spot del lanzamiento o inauguración del nuevo programa","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-18","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-002","fecha_pub":"18/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"OTRO","plataforma":"Sin definir","servicio":"La Casa del Sabor","objetivo":"Modificar el logo de la Casa del Sabor a su color original","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-003","fecha_pub":"18/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram","servicio":"La Casa del Sabor","objetivo":"Modificar el flyer del menú con los colores originales del logo","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-006A","fecha_pub":"18/5/2026","responsable":"Wale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Realizar un flyer de los horarios de atención de la SBT y del restaurant","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-005","fecha_pub":"18/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook","servicio":"SBT","objetivo":"Crear diseño de la nueva portada de la página oficial de la SBT","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-006B","fecha_pub":"18/5/2026","responsable":"Wale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook","servicio":"La Casa del Sabor","objetivo":"Crear diseño de la nueva portada de la página oficial del restaurante","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-001","fecha_pub":"18/5/2026","responsable":"Sergio","colaborador":"","area":"Filmaker","tipo":"Guion","plataforma":"Sin definir","servicio":"SBT","objetivo":"Crear un guion para el spot del lanzamiento o inauguración del nuevo programa","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-18","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-002","fecha_pub":"18/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"OTRO","plataforma":"Sin definir","servicio":"La Casa del Sabor","objetivo":"Modificar el logo de la Casa del Sabor a su color original","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-003","fecha_pub":"18/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram","servicio":"La Casa del Sabor","objetivo":"Modificar el flyer del menú con los colores originales del logo","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-006A","fecha_pub":"18/5/2026","responsable":"Wale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Realizar un flyer de los horarios de atención de la SBT y del restaurant","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-005","fecha_pub":"18/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook","servicio":"SBT","objetivo":"Crear diseño de la nueva portada de la página oficial de la SBT","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-006B","fecha_pub":"18/5/2026","responsable":"Wale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook","servicio":"La Casa del Sabor","objetivo":"Crear diseño de la nueva portada de la página oficial del restaurante","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
 {"id":"SBT-007","fecha_pub":"18/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Elaboración de flyer 'Frase Motivacional' para Stories","prioridad":"Alta","estado":"En proceso","fecha_entrega":"2026-05-19","copy":"Ayudar al que lo necesita no solo es parte del deber, sino de la felicidad. ✨","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
 {"id":"SBT-008","fecha_pub":"18/5/2026","responsable":"Sergio","colaborador":"","area":"Filmaker","tipo":"Foto","plataforma":"Facebook, Instagram, TikTok","servicio":"La Casa del Sabor","objetivo":"Sesión fotográfica de los platos para crear base de datos de publicaciones","prioridad":"Alta","estado":"En proceso","fecha_entrega":"2026-05-18","copy":"","observaciones":"","recursos":{"traslado":{on:true,detalle:"Local de La Casa del Sabor"}},"adjuntos":[],"metricas":{}},
 {"id":"SBT-009","fecha_pub":"18/5/2026","responsable":"Sergio","colaborador":"Gerente de Programas Sociales","area":"Filmaker","tipo":"Guion","plataforma":"Sin definir","servicio":"Programas Sociales","objetivo":"Hacer un guión del spot de cada donatón del viernes 22 y sábado 23 de mayo","prioridad":"Alta","estado":"En proceso","fecha_entrega":"2026-05-18","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-010","fecha_pub":"19/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Hacer flyer de la donatón del viernes 22 de mayo","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-19","copy":"¡HOY ES LA GRAN DONATÓN DE LA SBT! 🚨","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:142,compartidos:38,comentarios:12,alcance:3400,reproducciones:0}},
-{"id":"SBT-011","fecha_pub":"19/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Hacer flyer de la donatón del sábado 23 de mayo","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-19","copy":"¡HOY SÁBADO 23, SEGUNDO DÍA DE LA DONATÓN SBT! ⏳","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:98,compartidos:24,comentarios:7,alcance:2600,reproducciones:0}},
+{"id":"SBT-010","fecha_pub":"19/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Hacer flyer de la donatón del viernes 22 de mayo","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-19","copy":"¡HOY ES LA GRAN DONATÓN DE LA SBT! 🚨","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:142,compartidos:38,comentarios:12,alcance:3400,reproducciones:0}},
+{"id":"SBT-011","fecha_pub":"19/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Hacer flyer de la donatón del sábado 23 de mayo","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-19","copy":"¡HOY SÁBADO 23, SEGUNDO DÍA DE LA DONATÓN SBT! ⏳","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:98,compartidos:24,comentarios:7,alcance:2600,reproducciones:0}},
 {"id":"SBT-012","fecha_pub":"19/5/2026","responsable":"Sergio","colaborador":"Gerente de Programas Sociales","area":"Filmaker","tipo":"Video","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Grabación a la gerente de programas sociales","prioridad":"Alta","estado":"En proceso","fecha_entrega":"2026-05-19","copy":"","observaciones":"","recursos":{"voz":{on:true},"traslado":{on:true,detalle:"Instalaciones de la DRTC"}},"adjuntos":[],"metricas":{}},
-{"id":"SBT-013","fecha_pub":"20/5/2026","responsable":"Sergio","colaborador":"Gerente de Programas Sociales","area":"Filmaker","tipo":"Video","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Publicar el video editado de la Gerente de Programas Sociales desde la DRTC","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:210,compartidos:55,comentarios:18,alcance:5100,reproducciones:8200}},
-{"id":"SBT-014","fecha_pub":"20/5/2026","responsable":"Sergio","colaborador":"","area":"Filmaker","tipo":"Flyer","plataforma":"Facebook","servicio":"La Casa del Sabor","objetivo":"Actualizar la portada de la SBT","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:64,compartidos:9,comentarios:3,alcance:1500,reproducciones:0}},
-{"id":"SBT-015","fecha_pub":"20/5/2026","responsable":"Wale","colaborador":"","area":"Otro","tipo":"OTRO","plataforma":"Sin definir","servicio":"SBT","objetivo":"Actualizar y rellenar las efemérides en la pestaña EFEMÉRIDES","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-016","fecha_pub":"20/5/2026","responsable":"Vale","colaborador":"Gerencia de Imagen","area":"Diseñadores","tipo":"OTRO","plataforma":"Sin definir","servicio":"SBT","objetivo":"Boceto y vectorización del personaje de la SBT (identidad de marca)","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-017","fecha_pub":"20/5/2026","responsable":"Wale","colaborador":"","area":"Community","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Publicar los flyers de horarios de la SBT y del restaurante","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:51,compartidos:14,comentarios:2,alcance:1900,reproducciones:0}},
-{"id":"SBT-018","fecha_pub":"20/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Hacer flyer recordatorio de la Gran Donatón (viernes 22 y sábado 23)","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-21","copy":"¿Estás listo para ser parte del cambio en nuestra comunidad? 🏢❤️","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-019","fecha_pub":"20/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Flyer guía: ¿CÓMO PUEDES AYUDAR? canales de donación","prioridad":"Alta","estado":"Finalizado","fecha_entrega":"2026-05-21","copy":"La solidaridad es más fuerte cuando nos organizamos. 💼📊","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
-{"id":"SBT-020","fecha_pub":"20/5/2026","responsable":"Wale","colaborador":"Gerente General","area":"Community","tipo":"Foto","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Publicar las fotos del evento con la Gerente General","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-21","copy":"Copy enviado al grupo de WhatsApp.","observaciones":"","recursos":{"cobertura":{on:true}},"adjuntos":[],"metricas":{likes:188,compartidos:42,comentarios:15,alcance:4700,reproducciones:0}},
-{"id":"SBT-021","fecha_pub":"21/5/2026","responsable":"Wale","colaborador":"Gerente General","area":"Community","tipo":"Video","plataforma":"Facebook","servicio":"SBT","objetivo":"Publicar video del evento 30 min después de las fotos","prioridad":"Alta","estado":"Publicado","fecha_entrega":"2026-05-21","copy":"Presentamos nuestro proyecto emblemático '10 de Agosto'.","observaciones":"","recursos":{"cobertura":{on:true},"drone":{on:true}},"adjuntos":[],"metricas":{likes:233,compartidos:71,comentarios:22,alcance:6300,reproducciones:11400}},
+{"id":"SBT-013","fecha_pub":"20/5/2026","responsable":"Sergio","colaborador":"Gerente de Programas Sociales","area":"Filmaker","tipo":"Video","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Publicar el video editado de la Gerente de Programas Sociales desde la DRTC","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:210,compartidos:55,comentarios:18,alcance:5100,reproducciones:8200}},
+{"id":"SBT-014","fecha_pub":"20/5/2026","responsable":"Sergio","colaborador":"","area":"Filmaker","tipo":"Flyer","plataforma":"Facebook","servicio":"La Casa del Sabor","objetivo":"Actualizar la portada de la SBT","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:64,compartidos:9,comentarios:3,alcance:1500,reproducciones:0}},
+{"id":"SBT-015","fecha_pub":"20/5/2026","responsable":"Wale","colaborador":"","area":"Otro","tipo":"OTRO","plataforma":"Sin definir","servicio":"SBT","objetivo":"Actualizar y rellenar las efemérides en la pestaña EFEMÉRIDES","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-016","fecha_pub":"20/5/2026","responsable":"Vale","colaborador":"Gerencia de Imagen","area":"Diseñadores","tipo":"OTRO","plataforma":"Sin definir","servicio":"SBT","objetivo":"Boceto y vectorización del personaje de la SBT (identidad de marca)","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-017","fecha_pub":"20/5/2026","responsable":"Wale","colaborador":"","area":"Community","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Publicar los flyers de horarios de la SBT y del restaurante","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-20","copy":"","observaciones":"","recursos":{},"adjuntos":[],"metricas":{likes:51,compartidos:14,comentarios:2,alcance:1900,reproducciones:0}},
+{"id":"SBT-018","fecha_pub":"20/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Hacer flyer recordatorio de la Gran Donatón (viernes 22 y sábado 23)","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-21","copy":"¿Estás listo para ser parte del cambio en nuestra comunidad? 🏢❤️","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-019","fecha_pub":"20/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Flyer guía: ¿CÓMO PUEDES AYUDAR? canales de donación","prioridad":"Alta","estado":"Diseñado","fecha_entrega":"2026-05-21","copy":"La solidaridad es más fuerte cuando nos organizamos. 💼📊","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
+{"id":"SBT-020","fecha_pub":"20/5/2026","responsable":"Wale","colaborador":"Gerente General","area":"Community","tipo":"Foto","plataforma":"Facebook, Instagram, TikTok","servicio":"SBT","objetivo":"Publicar las fotos del evento con la Gerente General","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-21","copy":"Copy enviado al grupo de WhatsApp.","observaciones":"","recursos":{"cobertura":{on:true}},"adjuntos":[],"metricas":{likes:188,compartidos:42,comentarios:15,alcance:4700,reproducciones:0}},
+{"id":"SBT-021","fecha_pub":"21/5/2026","responsable":"Wale","colaborador":"Gerente General","area":"Community","tipo":"Video","plataforma":"Facebook","servicio":"SBT","objetivo":"Publicar video del evento 30 min después de las fotos","prioridad":"Alta","estado":"Público/Finalizado","fecha_entrega":"2026-05-21","copy":"Presentamos nuestro proyecto emblemático '10 de Agosto'.","observaciones":"","recursos":{"cobertura":{on:true},"drone":{on:true}},"adjuntos":[],"metricas":{likes:233,compartidos:71,comentarios:22,alcance:6300,reproducciones:11400}},
 {"id":"SBT-022","fecha_pub":"21/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Diseño de cuenta regresiva: 'Mañana Gran Donatón'","prioridad":"Alta","estado":"En proceso","fecha_entrega":"2026-05-21","copy":"Tarapoto, ¿estamos listos? ⏳ Mañana es el día. ❤️🏢","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
 {"id":"SBT-023","fecha_pub":"21/5/2026","responsable":"Tonny","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Canchas","objetivo":"Flyer '¿HOY SE JUEGA?' para la cancha sintética","prioridad":"Alta","estado":"En proceso","fecha_entrega":"2026-05-21","copy":"Deja las excusas y asegura hoy mismo los mejores partidos. 🥤🍟","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}},
 {"id":"SBT-024","fecha_pub":"21/5/2026","responsable":"Vale","colaborador":"","area":"Diseñadores","tipo":"Flyer","plataforma":"Facebook, Instagram, TikTok","servicio":"Programas Sociales","objetivo":"Diseño de cuenta regresiva: 'Hoy Gran Donatón'","prioridad":"Alta","estado":"Programado","fecha_entrega":"2026-05-21","copy":"¡TARAPOTO SE UNE HOY! 🏢🤝❤️","observaciones":"","recursos":{},"adjuntos":[],"metricas":{}}
@@ -905,13 +961,13 @@ let TASKS = [...TASKS_DEFAULT];
 
 
 
-const ST_COLOR = {'En proceso':'var(--st-proceso)','Finalizado':'var(--st-finalizado)',
-  'Publicado':'var(--st-publicado)','Programado':'var(--st-programado)','Sin estado':'var(--st-sin)'};
+const ST_COLOR = {'En proceso':'var(--st-proceso)','Diseñado':'var(--st-finalizado)',
+  'Público/Finalizado':'var(--st-publicado)','Programado':'var(--st-programado)','Sin estado':'var(--st-sin)'};
 const COLS = [
   {key:'En proceso', label:'En proceso', color:'var(--st-proceso)'},
   {key:'Programado', label:'Programado', color:'var(--st-programado)'},
-  {key:'Publicado',  label:'Publicado',  color:'var(--st-publicado)'},
-  {key:'Finalizado', label:'Finalizado', color:'var(--st-finalizado)'}
+  {key:'Público/Finalizado', label:'Público/Finalizado', color:'var(--st-publicado)'},
+  {key:'Diseñado', label:'Diseñado', color:'var(--st-finalizado)'}
 ];
 
 /* ---- pestañas según rol ---- */
@@ -989,8 +1045,12 @@ function getFiltered(){
   const q=document.getElementById('search').value.toLowerCase();
   const fs=document.getElementById('fServicio').value;
   let list=TASKS.slice();
+  /* Los no-Admin no ven las tareas Público/Finalizado */
+  if(CURRENT && CURRENT.rol!=='Admin'){
+    list=list.filter(t=>t.estado!=='Público/Finalizado');
+  }
   if(activeTab==='mias'){
-    const mine=CURRENT.nombre.replace(' (Admin)','').trim();
+    const mine=(CURRENT.nombre||'').replace(' (Admin)','').trim();
     list=list.filter(t=>t.responsable===mine);
   }
   if(fs) list=list.filter(t=>t.servicio===fs);
@@ -1005,7 +1065,7 @@ function render(){
   TASKS.forEach(t=>{if(counts[t.estado]!=null)counts[t.estado]++;});
   document.getElementById('stats').innerHTML=
     [['Total',TASKS.length,'var(--moss)'],['En proceso',counts['En proceso'],'var(--st-proceso)'],
-     ['Publicado',counts['Publicado'],'var(--st-publicado)'],['Finalizado',counts['Finalizado'],'var(--st-finalizado)']]
+     ['Público/Finalizado',counts['Público/Finalizado'],'var(--st-publicado)'],['Diseñado',counts['Diseñado'],'var(--st-finalizado)']]
     .map(([l,n,c])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div>
       <div class="bar" style="background:${c}"></div></div>`).join('');
   if(viewMode==='tablero') renderKanban(list); else renderList(list);
@@ -1309,7 +1369,7 @@ async function addUser(){
 
 /* ===================== COMMUNITY: MÉTRICAS ===================== */
 function renderMetrics(){
-  const pub=TASKS.filter(t=>t.estado==='Publicado');
+  const pub=TASKS.filter(t=>t.estado==='Público/Finalizado');
   const grid=document.getElementById('metricGrid');
   if(!pub.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1">
     <div class="big">📊</div>Aún no hay publicaciones registradas.</div>`;return;}
@@ -1336,7 +1396,7 @@ function setMetric(id,f,v){
 
 /* ===================== COMMUNITY: PANEL DE ESTADÍSTICAS ===================== */
 function renderCPanel(){
-  const pub=TASKS.filter(t=>t.estado==='Publicado');
+  const pub=TASKS.filter(t=>t.estado==='Público/Finalizado');
   const sum=f=>pub.reduce((s,t)=>s+((t.metricas&&t.metricas[f])||0),0);
   const tLikes=sum('likes'), tComp=sum('compartidos'), tCom=sum('comentarios'),
         tAlc=sum('alcance'), tRep=sum('reproducciones');
@@ -1453,31 +1513,74 @@ async function delEfe(i){
 }
 
 /* ===================== PANEL DE CONTROL (ADMIN) ===================== */
+let ctrlPeriodo = 'all';
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function setPeriodo(p){
+  ctrlPeriodo = p;
+  ['all','sem','mes','anterior'].forEach(id=>{
+    const b = document.getElementById('p'+id.charAt(0).toUpperCase()+id.slice(1));
+    if(b) b.classList.toggle('active', id===p);
+  });
+  renderControl();
+}
+
+function filtrarPorPeriodo(list){
+  const now = new Date(); now.setHours(0,0,0,0);
+  if(ctrlPeriodo==='all') return list;
+  if(ctrlPeriodo==='sem'){
+    const lun = new Date(now); lun.setDate(now.getDate()-now.getDay()+1);
+    const dom = new Date(lun); dom.setDate(lun.getDate()+6);
+    return list.filter(t=>{ if(!t.fecha_entrega) return false;
+      const d=new Date(t.fecha_entrega+'T00:00:00');
+      return d>=lun && d<=dom; });
+  }
+  if(ctrlPeriodo==='mes'){
+    return list.filter(t=>{ if(!t.fecha_entrega) return false;
+      const d=new Date(t.fecha_entrega+'T00:00:00');
+      return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth(); });
+  }
+  if(ctrlPeriodo==='anterior'){
+    const prev = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    return list.filter(t=>{ if(!t.fecha_entrega) return false;
+      const d=new Date(t.fecha_entrega+'T00:00:00');
+      return d.getFullYear()===prev.getFullYear() && d.getMonth()===prev.getMonth(); });
+  }
+  return list;
+}
+
 function renderControl(){
-  const total=TASKS.length;
-  const pend=TASKS.filter(t=>t.estado==='En proceso'||t.estado==='Programado').length;
-  const done=TASKS.filter(t=>t.estado==='Finalizado'||t.estado==='Publicado').length;
+  const base = filtrarPorPeriodo(TASKS);
+  const total=base.length;
+  const pend=base.filter(t=>t.estado==='En proceso'||t.estado==='Programado').length;
+  const done=base.filter(t=>t.estado==='Diseñado'||t.estado==='Público/Finalizado').length;
   const pct=total?Math.round(done/total*100):0;
+  const nf=n=>n.toLocaleString('es-PE');
+
+  /* Stats principales */
   document.getElementById('ctrlStats').innerHTML=
-    [['Tareas totales',total,'var(--moss)'],['Pendientes',pend,'var(--st-proceso)'],
-     ['Completadas',done,'var(--st-finalizado)'],['Avance',pct+'%','var(--st-publicado)']]
+    [['Tareas período',total,'var(--moss)'],
+     ['Pendientes',pend,'var(--st-proceso)'],
+     ['Completadas',done,'var(--st-finalizado)'],
+     ['Avance',pct+'%','var(--st-publicado)']]
     .map(([l,n,c])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div>
       <div class="bar" style="background:${c}"></div></div>`).join('');
 
-  /* barras por responsable */
+  /* Barras por responsable */
   const byResp={};
-  TASKS.forEach(t=>{const r=t.responsable||'Sin asignar';byResp[r]=(byResp[r]||0)+1;});
+  base.forEach(t=>{const r=t.responsable||'Sin asignar';byResp[r]=(byResp[r]||0)+1;});
   const maxR=Math.max(...Object.values(byResp),1);
-  document.getElementById('chartResp').innerHTML=Object.entries(byResp)
-    .sort((a,b)=>b[1]-a[1]).map(([r,n])=>`<div class="barrow">
-      <span class="bl">${esc(r)}</span>
-      <div class="bartrack"><div class="barfill" style="width:${n/maxR*100}%;background:var(--moss)">${n}</div></div>
-    </div>`).join('');
+  document.getElementById('chartResp').innerHTML= Object.keys(byResp).length
+    ? Object.entries(byResp).sort((a,b)=>b[1]-a[1]).map(([r,n])=>`<div class="barrow">
+        <span class="bl">${esc(r)}</span>
+        <div class="bartrack"><div class="barfill" style="width:${n/maxR*100}%;background:var(--moss)">${n}</div></div>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px">Sin datos para este período.</div>';
 
-  /* donut por estado */
-  const stc={}; COLS.forEach(c=>stc[c.key]=0);
-  let sinE=0;
-  TASKS.forEach(t=>{if(stc[t.estado]!=null)stc[t.estado]++;else sinE++;});
+  /* Donut por estado */
+  const stc={}; COLS.forEach(c=>stc[c.key]=0); let sinE=0;
+  base.forEach(t=>{if(stc[t.estado]!=null)stc[t.estado]++;else sinE++;});
   const segs=COLS.map(c=>({label:c.label,n:stc[c.key],color:getCss(c.color)}));
   if(sinE)segs.push({label:'Sin estado',n:sinE,color:'#9a9a92'});
   drawDonut(segs);
@@ -1485,26 +1588,102 @@ function renderControl(){
     `<div class="dl-row"><span class="dl-dot" style="background:${s.color}"></span>
      ${s.label} — <b>${s.n}</b></div>`).join('');
 
-  /* actividad reciente */
+  /* Barras por servicio */
+  const byServ={};
+  base.forEach(t=>{const s=t.servicio||'Sin definir';byServ[s]=(byServ[s]||0)+1;});
+  const maxS=Math.max(...Object.values(byServ),1);
+  const servColors={'SBT':'#0D0054','La Casa del Sabor':'#c98f2c',
+    'Programas Sociales':'#3a6ea5','Canchas':'#8a6cb0','Sin definir':'#9a9aa6'};
+  document.getElementById('chartServ').innerHTML= Object.keys(byServ).length
+    ? Object.entries(byServ).sort((a,b)=>b[1]-a[1]).map(([s,n])=>`<div class="barrow">
+        <span class="bl">${esc(s)}</span>
+        <div class="bartrack"><div class="barfill" style="width:${n/maxS*100}%;background:${servColors[s]||'#555'}">${n}</div></div>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px">Sin datos.</div>';
+
+  /* Calendario */
+  renderCalendario();
+
+  /* Actividad reciente */
   const acts=TASKS.filter(t=>t._upd).slice().sort((a,b)=>b._upd.when-a._upd.when);
   const log=document.getElementById('activityLog');
-  if(!acts.length){
-    log.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:8px 0">
-      Aún no hay movimientos en esta sesión. Cuando el equipo edite tareas, aparecerán aquí.</div>`;
-  } else {
-    log.innerHTML=acts.slice(0,12).map(t=>`<div class="act-row">
-      <span class="act-dot" style="background:${ST_COLOR[t.estado]||'#999'}"></span>
-      <span><span class="who2">${esc(t._upd.who)}</span> actualizó <b>${t.id}</b>
-        — ${esc((t.objetivo||'').slice(0,42))}${(t.objetivo||'').length>42?'…':''}</span>
-      <span class="when">${timeAgo(t._upd.when)}</span></div>`).join('');
-  }
+  log.innerHTML = acts.length
+    ? acts.slice(0,15).map(t=>`<div class="act-row">
+        <span class="act-dot" style="background:${ST_COLOR[t.estado]||'#999'}"></span>
+        <span><span class="who2">${esc(t._upd.who)}</span> actualizó <b>${t.id}</b>
+          — ${esc((t.objetivo||'').slice(0,50))}${(t.objetivo||'').length>50?'…':''}</span>
+        <span class="when">${timeAgo(t._upd.when)}</span></div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px;padding:8px 0">Aún no hay movimientos registrados en esta sesión.</div>';
 }
+
+/* ---- CALENDARIO ---- */
+function calNav(dir){
+  calMonth += dir;
+  if(calMonth>11){calMonth=0;calYear++;}
+  if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendario();
+}
+function renderCalendario(){
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DIAS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  document.getElementById('calLabel').textContent=MESES[calMonth]+' '+calYear;
+
+  const grid=document.getElementById('calGrid');
+  if(!grid) return;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const first=new Date(calYear,calMonth,1);
+  let dow=first.getDay(); if(dow===0)dow=7; // lunes=1
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const daysInPrev=new Date(calYear,calMonth,0).getDate();
+
+  /* Indexar tareas por fecha */
+  const byDay={};
+  TASKS.forEach(t=>{
+    if(!t.fecha_entrega) return;
+    const d=new Date(t.fecha_entrega+'T00:00:00');
+    if(d.getFullYear()===calYear && d.getMonth()===calMonth){
+      const k=d.getDate();
+      if(!byDay[k]) byDay[k]=[];
+      byDay[k].push(t);
+    }
+  });
+
+  let html='';
+  /* Cabecera días */
+  DIAS.forEach(d=>{ html+=`<div class="cal-dow">${d}</div>`; });
+
+  /* Días del mes anterior (relleno) */
+  for(let i=dow-1;i>0;i--){
+    html+=`<div class="cal-day other-month"><div class="cal-dn">${daysInPrev-i+1}</div></div>`;
+  }
+  /* Días del mes */
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=(new Date(calYear,calMonth,d)).getTime()===today.getTime();
+    const events=(byDay[d]||[]).slice(0,3);
+    const more=(byDay[d]||[]).length-3;
+    html+=`<div class="cal-day${isToday?' today':''}">
+      <div class="cal-dn" style="color:${isToday?'var(--gold)':'var(--muted)'}">${d}${isToday?' ●':''}</div>
+      ${events.map(t=>`<div class="cal-event" style="background:${ST_COLOR[t.estado]||'#888'}"
+        onclick="openTask('${t.id}')" title="${esc(t.objetivo)}">${esc(t.id)}</div>`).join('')}
+      ${more>0?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">+${more} más</div>`:''}
+    </div>`;
+  }
+  /* Relleno siguiente mes */
+  const total=dow-1+daysInMonth;
+  const rem=total%7===0?0:7-(total%7);
+  for(let d=1;d<=rem;d++){
+    html+=`<div class="cal-day other-month"><div class="cal-dn">${d}</div></div>`;
+  }
+  grid.innerHTML=html;
+}
+
 function getCss(v){
-  if(v.startsWith('var(')){
+  if(v&&v.startsWith('var(')){
     return getComputedStyle(document.documentElement)
       .getPropertyValue(v.slice(4,-1)).trim()||'#888';
   }
-  return v;
+  return v||'#888';
 }
 function drawDonut(segs){ drawDonutOn('donut',segs,'TAREAS'); }
 function drawDonutOn(svgId,segs,centerLabel){
