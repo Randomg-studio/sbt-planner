@@ -408,7 +408,8 @@
         <div style="overflow-x:auto">
         <table class="utable">
           <thead><tr><th>Nombre</th><th>Usuario</th><th>Contraseña</th>
-            <th>Correo (Calendar / Drive)</th><th>Cargo</th><th>Rol</th></tr></thead>
+            <th>Correo (Calendar / Drive)</th><th>Cargo</th><th>Rol</th>
+            <th>Estado</th><th>Acción</th></tr></thead>
           <tbody id="userRows"></tbody>
         </table>
         </div>
@@ -703,17 +704,19 @@ async function cargarDatos() {
     /* Usuarios */
     const us = await sbFetch('usuarios','GET',null,'?select=*&order=id');
     if (us && us.length > 0) {
-      USERS = us.map(u=>({id:u.id,usuario:u.usuario||'',nombre:u.nombre||'',
-        email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',rol:u.rol||'Lector'}));
+      USERS = us.map(u=>({id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',
+        nombre:u.nombre||'',email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',
+        rol:u.rol||'Lector',activo:(u.activo!==false)}));
     } else {
       for (const u of USERS_DEFAULT) {
         try { await sbFetch('usuarios','POST',{usuario:u.usuario,nombre:u.nombre,
-          email:u.email,pass:u.pass,cargo:u.cargo,rol:u.rol}); } catch(e) {}
+          email:u.email,pass:u.pass,cargo:u.cargo,rol:u.rol,activo:true}); } catch(e) {}
       }
       const us2 = await sbFetch('usuarios','GET',null,'?select=*&order=id');
       if (us2 && us2.length) USERS = us2.map(u=>
-        ({id:u.id,usuario:u.usuario||'',nombre:u.nombre||'',email:u.email||'',
-          pass:u.pass||'',cargo:u.cargo||'',rol:u.rol||'Lector'}));
+        ({id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',nombre:u.nombre||'',
+          email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',rol:u.rol||'Lector',
+          activo:(u.activo!==false)}));
     }
 
     /* Tareas */
@@ -866,17 +869,36 @@ async function saveMetricToDB(taskId, metricas) {
 async function saveUserToDB(u, idx) {
   try {
     const payload = {usuario:u.usuario,nombre:u.nombre,email:u.email,
-      pass:u.pass,cargo:u.cargo,rol:u.rol};
-    /* Siempre usar usuario (único) como clave para PATCH — más confiable que el id numérico */
-    const existe = await sbFetch('usuarios','GET',null,'?usuario=eq.'+encodeURIComponent(u.usuario));
+      pass:u.pass,cargo:u.cargo,rol:u.rol,activo:(u.activo!==false)};
+    /* Estrategia anti-duplicados:
+       1) Si el usuario tiene id de Supabase, actualizar por id (clave estable).
+       2) Si no, buscar por su usuario ORIGINAL (_orig) por si lo renombró.
+       3) Si tampoco existe, recién entonces crear nuevo. */
+    if (u.id) {
+      await sbFetch('usuarios','PATCH',payload,'?id=eq.'+u.id);
+      return;
+    }
+    const claveBusqueda = u._orig || u.usuario;
+    const existe = await sbFetch('usuarios','GET',null,
+      '?usuario=eq.'+encodeURIComponent(claveBusqueda));
     if (existe && existe.length > 0) {
-      await sbFetch('usuarios','PATCH',payload,'?usuario=eq.'+encodeURIComponent(u.usuario));
-      if (existe[0].id) USERS[idx].id = existe[0].id;
+      await sbFetch('usuarios','PATCH',payload,'?id=eq.'+existe[0].id);
+      if (idx!=null && USERS[idx]) USERS[idx].id = existe[0].id;
     } else {
       const res = await sbFetch('usuarios','POST',payload);
-      if (res && res[0]) USERS[idx].id = res[0].id;
+      if (res && res[0] && idx!=null && USERS[idx]) USERS[idx].id = res[0].id;
     }
   } catch(err) { console.error('Error usuario:', err); }
+}
+
+async function deleteUserFromDB(u) {
+  try {
+    if (u.id) {
+      await sbFetch('usuarios','DELETE',null,'?id=eq.'+u.id);
+    } else if (u.usuario) {
+      await sbFetch('usuarios','DELETE',null,'?usuario=eq.'+encodeURIComponent(u.usuario));
+    }
+  } catch(err) { console.error('Error eliminando usuario:', err); }
 }
 
 /* ---- GUARDAR EFEMÉRIDE ---- */
@@ -984,9 +1006,36 @@ let CURRENT=null, editingId=null, activeTab='todas', viewMode='tablero', draftAt
 async function doLogin(){
   const id=document.getElementById('loginEmail').value.trim().toLowerCase();
   const pw=document.getElementById('loginPass').value;
-  const u=USERS.find(x=>
-    ((x.usuario||'').toLowerCase()===id || x.email.toLowerCase()===id) && x.pass===pw);
-  if(!u){document.getElementById('loginErr').style.display='block';return;}
+  const errEl=document.getElementById('loginErr');
+  errEl.style.display='none';
+
+  let u=null;
+  /* Primero intentar verificar contra Supabase (datos actualizados) */
+  try{
+    const todos = await sbFetch('usuarios','GET',null,'?select=*');
+    if(todos){
+      u = todos.find(x=>
+        ((x.usuario||'').toLowerCase()===id ||
+         (x.email||'').toLowerCase()===id) && x.pass===pw);
+      if(u){
+        u={id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',nombre:u.nombre||'',
+           email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',rol:u.rol||'Lector',
+           activo:(u.activo!==false)};
+      }
+    }
+  }catch(e){
+    /* Sin conexión: usar lista local por defecto */
+    u=USERS.find(x=>
+      ((x.usuario||'').toLowerCase()===id||(x.email||'').toLowerCase()===id)&&x.pass===pw);
+  }
+
+  if(!u){ errEl.textContent='Usuario o contraseña incorrectos.';
+    errEl.style.display='block'; return; }
+  if(u.activo===false){
+    errEl.textContent='Tu cuenta está desactivada. Contacta al administrador.';
+    errEl.style.display='block'; return;
+  }
+
   CURRENT=u;
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='block';
@@ -1281,7 +1330,9 @@ async function saveTask(){
 
 /* ===================== USUARIOS ===================== */
 function renderUsers(){
-  document.getElementById('userRows').innerHTML=USERS.map((u,i)=>`<tr id="urow-${i}">
+  document.getElementById('userRows').innerHTML=USERS.map((u,i)=>{
+    const inactivo = u.activo===false;
+    return `<tr id="urow-${i}" style="${inactivo?'opacity:.5':''}">
     <td><input id="un-${i}"  value="${esc(u.nombre)}"   style="width:105px" placeholder="Nombre"></td>
     <td><input id="uu-${i}"  value="${esc(u.usuario||'')}" style="width:90px" placeholder="usuario"></td>
     <td>
@@ -1298,25 +1349,56 @@ function renderUsers(){
     <td><select id="ur-${i}">
       ${['Admin','Editor','Community','Lector'].map(r=>
         `<option ${u.rol===r?'selected':''}>${r}</option>`).join('')}</select></td>
-  </tr>`).join('');
+    <td><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;
+      background:${inactivo?'#e9e7d0':'#cfe3d8'};color:${inactivo?'#8a8550':'#2f5d4a'}">
+      ${inactivo?'Inactivo':'Activo'}</span></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-ghost" onclick="toggleActivoUsuario(${i})"
+        title="${inactivo?'Reactivar este usuario':'Desactivar (sin borrar)'}"
+        style="padding:6px 9px;font-size:12px">${inactivo?'✓ Activar':'⏸ Desactivar'}</button>
+      <button class="btn btn-sm" onclick="eliminarUsuario(${i})"
+        title="Eliminar definitivamente"
+        style="padding:6px 9px;font-size:12px;background:var(--clay)">🗑 Eliminar</button>
+    </td>
+  </tr>`;
+  }).join('');
 }
 
-/* Leer todos los campos de la tabla y guardar en Supabase de una sola vez */
+/* Lee los valores de una fila y devuelve el objeto usuario actualizado */
+function leerFilaUsuario(i){
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  return {
+    ...USERS[i],
+    nombre:  g('un-'+i).trim(),
+    usuario: g('uu-'+i).trim().toLowerCase(),
+    pass:    g('up-'+i).trim() || USERS[i].pass,
+    email:   g('ue-'+i).trim(),
+    cargo:   g('uc-'+i),
+    rol:     g('ur-'+i)
+  };
+}
+
+/* Guarda TODAS las filas — reescribe sobre las existentes, no duplica */
 async function guardarTodosUsuarios(){
   const btn = document.getElementById('btnGuardarUsuarios');
   btn.textContent = '⏳ Guardando…'; btn.disabled = true;
 
-  /* Leer valores actuales de la tabla */
+  /* Validar usuarios duplicados antes de guardar */
+  const nombres = USERS.map((u,i)=>leerFilaUsuario(i).usuario);
+  const dup = nombres.find((u,i)=>u && nombres.indexOf(u)!==i);
+  if(dup){
+    alert('Hay dos miembros con el mismo usuario: "'+dup+'". Corrige eso antes de guardar.');
+    btn.textContent='💾 Guardar todo'; btn.disabled=false;
+    return;
+  }
+
   for(let i=0; i<USERS.length; i++){
-    const nombre  = (document.getElementById('un-'+i)||{}).value?.trim();
-    const usuario = (document.getElementById('uu-'+i)||{}).value?.trim().toLowerCase();
-    const pass    = (document.getElementById('up-'+i)||{}).value?.trim();
-    const email   = (document.getElementById('ue-'+i)||{}).value?.trim();
-    const cargo   = (document.getElementById('uc-'+i)||{}).value;
-    const rol     = (document.getElementById('ur-'+i)||{}).value;
-    if(!nombre||!usuario) continue;
-    USERS[i] = {...USERS[i], nombre, usuario, pass:pass||USERS[i].pass, email:email||'', cargo:cargo||'', rol:rol||'Lector'};
+    const u = leerFilaUsuario(i);
+    if(!u.nombre||!u.usuario) continue;
+    USERS[i] = u;
     await saveUserToDB(USERS[i], i);
+    /* Tras guardar, el usuario actual pasa a ser el "original" */
+    USERS[i]._orig = USERS[i].usuario;
   }
 
   btn.textContent = '💾 Guardar todo'; btn.disabled = false;
@@ -1324,7 +1406,6 @@ async function guardarTodosUsuarios(){
   msg.style.display = 'inline';
   setTimeout(()=>msg.style.display='none', 4000);
 
-  /* Actualizar UI si el usuario actual cambió */
   if(CURRENT){
     const me = USERS.find(u=>u.email===CURRENT.email||u.usuario===CURRENT.usuario);
     if(me){
@@ -1334,6 +1415,34 @@ async function guardarTodosUsuarios(){
       rt.textContent = me.rol; rt.className = 'role-tag role-'+me.rol;
     }
   }
+  renderUsers();
+}
+
+/* Desactivar / reactivar un usuario (sigue existiendo, pero no puede entrar) */
+async function toggleActivoUsuario(i){
+  const u = USERS[i];
+  const nuevoEstado = !(u.activo===false) ? false : true;
+  if(!nuevoEstado && CURRENT && u.usuario===CURRENT.usuario){
+    alert('No puedes desactivarte a ti mismo.');return;
+  }
+  USERS[i] = {...leerFilaUsuario(i), activo:nuevoEstado};
+  await saveUserToDB(USERS[i], i);
+  USERS[i]._orig = USERS[i].usuario;
+  renderUsers();
+}
+
+/* Eliminar definitivamente un usuario */
+async function eliminarUsuario(i){
+  const u = USERS[i];
+  if(CURRENT && u.usuario===CURRENT.usuario){
+    alert('No puedes eliminar tu propia cuenta.');return;
+  }
+  if(!confirm('¿Eliminar definitivamente a "'+(u.nombre||u.usuario)+'"?\n\nEsta acción no se puede deshacer. Si solo quieres pausarlo temporalmente, usa "Desactivar".')){
+    return;
+  }
+  await deleteUserFromDB(u);
+  USERS.splice(i,1);
+  renderUsers();
 }
 
 /* Ojito para mostrar/ocultar contraseña */
@@ -1346,7 +1455,6 @@ function toggleOjo(inputId, btn){
 
 function changeRole(i,r){ /* cubierto por guardarTodosUsuarios */ }
 
-async function guardarUsuario(i){ /* legacy, no se usa */ }
 async function addUser(){
   const n=document.getElementById('nuName').value.trim();
   const us=document.getElementById('nuUser').value.trim().toLowerCase();
@@ -1355,14 +1463,17 @@ async function addUser(){
   if(!n||!us){alert('Completa al menos el nombre y el usuario.');return;}
   if(USERS.some(u=>(u.usuario||'').toLowerCase()===us)){
     alert('Ya existe un miembro con ese usuario.');return;}
-  if(e && USERS.some(u=>u.email.toLowerCase()===e.toLowerCase())){
+  if(e && USERS.some(u=>u.email && u.email.toLowerCase()===e.toLowerCase())){
     alert('Ya existe un miembro con ese correo.');return;}
-  USERS.push({usuario:us,nombre:n,email:e,pass:p,
-    cargo:document.getElementById('nuCargo').value,rol:document.getElementById('nuRole').value});
+  const nuevo = {usuario:us,_orig:us,nombre:n,email:e,pass:p,
+    cargo:document.getElementById('nuCargo').value,
+    rol:document.getElementById('nuRole').value, activo:true};
+  USERS.push(nuevo);
   ['nuName','nuUser','nuEmail'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nuPass').value='equipo123';
   const _ni = USERS.length-1;
   await saveUserToDB(USERS[_ni], _ni);
+  USERS[_ni]._orig = USERS[_ni].usuario;
   renderUsers();
   alert('Miembro agregado. Puede ingresar con su usuario: '+us);
 }
