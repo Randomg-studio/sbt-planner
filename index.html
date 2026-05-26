@@ -2237,7 +2237,7 @@ async function abrirChat(){
   renderConversaciones();
   /* por defecto abrir el general */
   if(!chatActual) seleccionarConv({tipo:'general'});
-  else renderMensajes();
+  else { actualizarBarraInput(); renderMensajes(); }
   if(chatPoll) clearInterval(chatPoll);
   chatPoll=setInterval(async()=>{
     if(activeTab==='chat'){
@@ -2246,6 +2246,15 @@ async function abrirChat(){
       renderMensajes();
     }
   }, 8000);
+}
+
+/* Muestra la barra de escritura solo cuando hay una conversación activa
+   y NO se está en modo supervisión */
+function actualizarBarraInput(){
+  const bar=document.getElementById('chatInputBar');
+  if(!bar) return;
+  const debeVerse = chatActual && !chatSupervisando;
+  bar.style.display = debeVerse ? 'flex' : 'none';
 }
 
 async function refrescarUsuariosChat(){
@@ -2302,7 +2311,7 @@ function seleccionarConv(conv){
   chatActual=conv;
   chatSupervisando=null;
   renderConversaciones();
-  document.getElementById('chatInputBar').style.display='flex';
+  actualizarBarraInput();
   renderMensajes();
 }
 
@@ -2311,7 +2320,9 @@ async function supervisarUsuario(usuario){
   const u=USERS.find(x=>x.usuario===usuario);
   const head=document.getElementById('chatHead');
   const msgs=document.getElementById('chatMsgs');
-  document.getElementById('chatInputBar').style.display='none';
+  chatSupervisando={usuario:usuario};
+  chatActual=null;
+  actualizarBarraInput();
   head.innerHTML=`👁 Chats privados de ${esc(u?u.nombre:usuario)}
     <span class="admin-eye">Modo supervisión</span>`;
   /* buscar todas las conversaciones privadas donde participa */
@@ -2354,7 +2365,7 @@ async function supervisarUsuario(usuario){
 function claveConv(a,b){ return [a,b].sort().join('__'); }
 
 async function renderMensajes(){
-  if(!chatActual) return;
+  if(!chatActual || chatSupervisando) return;
   const head=document.getElementById('chatHead');
   const msgs=document.getElementById('chatMsgs');
   let query;
