@@ -2366,6 +2366,9 @@ function claveConv(a,b){ return [a,b].sort().join('__'); }
 
 async function renderMensajes(){
   if(!chatActual || chatSupervisando) return;
+  /* Garantizar que la barra de escritura esté visible */
+  const _bar=document.getElementById('chatInputBar');
+  if(_bar) _bar.style.display='flex';
   const head=document.getElementById('chatHead');
   const msgs=document.getElementById('chatMsgs');
   let query;
