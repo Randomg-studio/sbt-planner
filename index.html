@@ -1317,8 +1317,8 @@ function getFiltered(){
     list=list.filter(t=>t.estado!=='Publicado/Finalizado');
   }
   if(activeTab==='mias'){
-    const mine=(CURRENT.nombre||'').replace(' (Admin)','').trim();
-    list=list.filter(t=>t.responsable===mine);
+    const mine=(CURRENT.nombre||'').replace(' (Admin)','').trim().toLowerCase();
+    list=list.filter(t=>(t.responsable||'').trim().toLowerCase()===mine);
   }
   if(fs) list=list.filter(t=>t.servicio===fs);
   if(q) list=list.filter(t=>(plano(t.objetivo)+t.id+t.responsable+(t.colaborador||'')).toLowerCase().includes(q));
@@ -2319,11 +2319,11 @@ async function supervisarUsuario(usuario){
     const todos=await sbFetch('mensajes','GET',null,
       '?tipo=eq.privado&order=fecha.desc');
     const suyos=(todos||[]).filter(m=>
-      m.de===usuario || m.para===usuario);
+      m.emisor===usuario || m.para===usuario);
     /* agrupar por la otra persona */
     const grupos={};
     suyos.forEach(m=>{
-      const otro = m.de===usuario ? m.para : m.de;
+      const otro = m.emisor===usuario ? m.para : m.emisor;
       (grupos[otro]=grupos[otro]||[]).push(m);
     });
     if(Object.keys(grupos).length===0){
@@ -2336,9 +2336,9 @@ async function supervisarUsuario(usuario){
       html+=`<div style="margin:6px 0 3px;font-weight:700;font-size:12px;color:var(--moss)">
         Conversación con ${esc(uo?uo.nombre:otro)}</div>`;
       ms.slice().reverse().forEach(m=>{
-        const deU=USERS.find(x=>x.usuario===m.de);
+        const deU=USERS.find(x=>x.usuario===m.emisor);
         html+=`<div class="msg msg-other" style="max-width:88%">
-          <div class="msg-autor">${esc(deU?deU.nombre:m.de)}</div>
+          <div class="msg-autor">${esc(deU?deU.nombre:m.emisor)}</div>
           ${esc(m.texto)}
           <div class="msg-hora">${fmtHora(m.fecha)}</div></div>`;
       });
@@ -2373,10 +2373,10 @@ async function renderMensajes(){
       return;
     }
     msgs.innerHTML=ms.map(m=>{
-      const mio=m.de===CURRENT.usuario;
-      const deU=USERS.find(x=>x.usuario===m.de);
+      const mio=m.emisor===CURRENT.usuario;
+      const deU=USERS.find(x=>x.usuario===m.emisor);
       return `<div class="msg ${mio?'msg-mine':'msg-other'}">
-        ${!mio?`<div class="msg-autor">${esc(deU?deU.nombre:m.de)}</div>`:''}
+        ${!mio?`<div class="msg-autor">${esc(deU?deU.nombre:m.emisor)}</div>`:''}
         ${esc(m.texto)}
         <div class="msg-hora">${fmtHora(m.fecha)}</div></div>`;
     }).join('');
@@ -2391,7 +2391,7 @@ async function enviarMensaje(){
   const texto=inp.value.trim();
   if(!texto||!chatActual) return;
   const fila={
-    de:CURRENT.usuario,
+    emisor:CURRENT.usuario,
     texto:texto,
     fecha:new Date().toISOString(),
     tipo:chatActual.tipo
