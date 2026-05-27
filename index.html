@@ -945,6 +945,8 @@
           style="min-height:130px"></textarea></div>
     </div>
     <div class="modal-foot">
+      <button class="btn btn-sm" id="btnDelTask" onclick="eliminarTarea()"
+        style="background:var(--clay);margin-right:auto;display:none">🗑 Eliminar tarea</button>
       <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cerrar</button>
       <button class="btn btn-sm" id="btnSave" onclick="saveTask()">Guardar cambios</button>
     </div>
@@ -1301,7 +1303,8 @@ const TABS_BY_ROLE = {
   Editor:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Lector:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Community: [['todas','Calendario de tareas'],['cpanel','Mi panel'],['metricas','Métricas'],['efemerides','Efemérides'],['calendario','Calendario'],['chat','Chat']],
-  Gerente:   [['solicitar','Solicitar trabajo'],['missolicitudes','Mis solicitudes'],['chat','Chat']]
+  Gerente:   [['solicitar','Solicitar trabajo'],['missolicitudes','Mis solicitudes']]
+  /* Para reactivar el chat de los gerentes en el futuro, agregar a la lista de arriba:  ,['chat','Chat']  */
 };
 
 let CURRENT=null, editingId=null, activeTab='todas', viewMode='tablero', draftAttach=[], draftRec={};
@@ -1611,8 +1614,32 @@ function applyPermissions(){
     az.style.pointerEvents='';az.style.opacity='';li.disabled=false;
     save.style.display='';
   }
+  /* Botón eliminar tarea: solo Admin y solo si la tarea ya existe (no al crear nueva) */
+  const delBtn=document.getElementById('btnDelTask');
+  if(delBtn){
+    delBtn.style.display=(rol==='Admin' && editingId)?'':'none';
+  }
 }
 function closeModal(){document.getElementById('overlay').classList.remove('show');}
+
+/* El Admin elimina una tarea */
+async function eliminarTarea(){
+  if(!editingId || CURRENT.rol!=='Admin') return;
+  const t=TASKS.find(x=>x.id===editingId);
+  if(!t) return;
+  if(!confirm('¿Eliminar definitivamente la tarea '+editingId+'?\n\n"'+plano(t.objetivo).slice(0,60)+'"\n\nEsta acción NO se puede deshacer.')){
+    return;
+  }
+  try{
+    await sbFetch('tareas','DELETE',null,'?id=eq.'+encodeURIComponent(editingId));
+    TASKS=TASKS.filter(x=>x.id!==editingId);
+    registrarAccion('editar', editingId, 'Tarea eliminada por el administrador');
+    closeModal();
+    render();
+  }catch(err){
+    alert('No se pudo eliminar la tarea.\n'+err.message);
+  }
+}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 
 /* ---- adjuntos ---- */
@@ -2742,8 +2769,24 @@ function tarjetaSolicitud(s,esAdmin){
       ${esAdmin && !conv ? `<button class="btn btn-sm" style="margin-left:auto"
         onclick="convertirEnTarea(${s.id})">✅ Convertir en tarea</button>` : ''}
       ${conv && s.tarea_id ? `<span style="margin-left:auto;font-size:12px;color:var(--moss);font-weight:600">→ Tarea ${esc(s.tarea_id)}</span>`:''}
+      ${esAdmin ? `<button class="btn btn-sm" style="background:var(--clay);${(esAdmin && !conv)?'margin-left:8px':'margin-left:auto'}"
+        onclick="eliminarSolicitud(${s.id})">🗑 Eliminar</button>` : ''}
     </div>
   </div>`;
+}
+
+/* El Admin elimina una solicitud */
+async function eliminarSolicitud(solId){
+  if(CURRENT.rol!=='Admin') return;
+  if(!confirm('¿Eliminar definitivamente esta solicitud?\n\nEsta acción NO se puede deshacer.')){
+    return;
+  }
+  try{
+    await sbFetch('solicitudes','DELETE',null,'?id=eq.'+solId);
+    renderPendientes();
+  }catch(err){
+    alert('No se pudo eliminar la solicitud.\n'+err.message);
+  }
 }
 
 /* El Admin convierte una solicitud en tarea */
