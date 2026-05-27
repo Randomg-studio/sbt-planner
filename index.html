@@ -417,6 +417,21 @@
     .chat-main{height:420px}
   }
 
+  /* ---------- BADGE DE NOTIFICACIONES ---------- */
+  .tab{position:relative}
+  .tab-badge{position:absolute;top:-3px;right:-4px;background:#d65a3e;color:#fff;
+    font-size:10.5px;font-weight:700;min-width:18px;height:18px;border-radius:99px;
+    display:inline-flex;align-items:center;justify-content:center;padding:0 5px;
+    line-height:1;box-shadow:0 0 0 2px var(--bg)}
+  .conv-badge{background:#d65a3e;color:#fff;font-size:10px;font-weight:700;
+    min-width:18px;height:18px;border-radius:99px;display:inline-flex;
+    align-items:center;justify-content:center;padding:0 5px;margin-left:auto}
+
+  /* ---------- CHECK DE ENVIADO/VISTO ---------- */
+  .msg-check{font-size:11px;margin-left:4px;color:#9fb8b0;letter-spacing:-2px;font-weight:700}
+  .msg-check.visto{color:#5ec8f5}
+  .msg-vistos-tip{font-size:9.5px;color:#cfe9e0;margin-top:2px;font-style:italic;cursor:help}
+
   /* ---------- SOLICITUDES (gerentes) ---------- */
   .sol-card{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:15px 17px;margin-bottom:11px}
@@ -1381,6 +1396,9 @@ async function doLogin(){
   /* Marcar en línea y mantener el latido cada 60s */
   latido();
   setInterval(latido, 60000);
+  /* Actualizar contador de mensajes nuevos cada 15 segundos */
+  actualizarBadgeChat();
+  setInterval(actualizarBadgeChat, 15000);
 }
 function doLogout(){
   CURRENT=null;
@@ -1394,8 +1412,10 @@ document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='
 /* ===================== TABS ===================== */
 function buildTabs(){
   const bar=document.getElementById('tabBar');
-  bar.innerHTML=TABS_BY_ROLE[CURRENT.rol].map(([k,l])=>
-    `<button class="tab" data-tab="${k}" onclick="switchTab('${k}')">${l}</button>`).join('');
+  bar.innerHTML=TABS_BY_ROLE[CURRENT.rol].map(([k,l])=>{
+    const badge = k==='chat' ? '<span class="tab-badge" id="chatBadge" style="display:none">0</span>' : '';
+    return `<button class="tab" data-tab="${k}" onclick="switchTab('${k}')">${l}${badge}</button>`;
+  }).join('');
 }
 function switchTab(t){
   activeTab=t;
@@ -2541,18 +2561,62 @@ async function renderMensajes(){
       msgs.innerHTML='<div class="chat-empty">No hay mensajes aún. ¡Escribe el primero!</div>';
       return;
     }
+    /* Lista total de participantes que deberían ver el mensaje */
+    const participantes = chatActual.tipo==='general'
+      ? USERS.filter(u=>u.activo!==false && u.rol!=='Gerente').map(u=>u.usuario)
+      : [chatActual.con];
+
     msgs.innerHTML=ms.map(m=>{
       const mio=m.emisor===CURRENT.usuario;
       const deU=USERS.find(x=>x.usuario===m.emisor);
+      /* Vistos: lista de usuarios que abrieron la conversación después de este mensaje */
+      const vistos=(m.visto_por||'').split(',').filter(Boolean).filter(u=>u!==m.emisor);
+      const todosVieron = participantes.every(p => p===m.emisor || vistos.includes(p));
+      /* Check: ✓ = enviado, ✓✓ azul = todos lo vieron */
+      let checkHTML='';
+      if(mio){
+        checkHTML = todosVieron
+          ? '<span class="msg-check visto" title="Visto por todos">✓✓</span>'
+          : '<span class="msg-check" title="Enviado">✓</span>';
+      }
+      /* Solo el Admin ve la lista de quiénes lo vieron */
+      let vistosAdmin='';
+      if(mio && CURRENT.rol==='Admin' && vistos.length>0){
+        const nombres = vistos.map(u=>{const x=USERS.find(y=>y.usuario===u);return x?x.nombre.split(' ')[0]:u;}).join(', ');
+        vistosAdmin = `<div class="msg-vistos-tip" title="${esc(nombres)}">👁 Visto por ${vistos.length} · ${esc(nombres)}</div>`;
+      }
       return `<div class="msg ${mio?'msg-mine':'msg-other'}">
         ${!mio?`<div class="msg-autor">${esc(deU?deU.nombre:m.emisor)}</div>`:''}
         ${esc(m.texto)}
-        <div class="msg-hora">${fmtHora(m.fecha)}</div></div>`;
+        <div class="msg-hora">${fmtHora(m.fecha)}${checkHTML}</div>
+        ${vistosAdmin}
+      </div>`;
     }).join('');
     msgs.scrollTop=msgs.scrollHeight;
+
+    /* Marcar como vistos los mensajes que el usuario actual aún no había visto */
+    marcarVistos(ms);
   }catch(e){
     msgs.innerHTML='<div class="chat-empty">No se pudieron cargar los mensajes.</div>';
   }
+}
+
+/* Marca como visto por mí los mensajes que no había visto */
+async function marcarVistos(ms){
+  if(!CURRENT) return;
+  const yo = CURRENT.usuario;
+  for(const m of ms){
+    if(m.emisor===yo) continue;
+    const vistos=(m.visto_por||'').split(',').filter(Boolean);
+    if(!vistos.includes(yo)){
+      vistos.push(yo);
+      try{
+        await sbFetch('mensajes','PATCH',{visto_por:vistos.join(',')},'?id=eq.'+m.id);
+      }catch(e){}
+    }
+  }
+  /* Actualizar el contador de la pestaña */
+  actualizarBadgeChat();
 }
 
 async function enviarMensaje(){
@@ -2563,7 +2627,8 @@ async function enviarMensaje(){
     emisor:CURRENT.usuario,
     texto:texto,
     fecha:new Date().toISOString(),
-    tipo:chatActual.tipo
+    tipo:chatActual.tipo,
+    visto_por:CURRENT.usuario  /* el propio emisor ya lo vio */
   };
   if(chatActual.tipo==='privado'){
     fila.para=chatActual.con;
@@ -2600,6 +2665,44 @@ function ponerEmoji(e){
   inp.focus();
   document.getElementById('emojiPanel').style.display='none';
 }
+/* ---- Contador de mensajes nuevos en la pestaña Chat ---- */
+async function actualizarBadgeChat(){
+  if(!CURRENT) return;
+  const badge=document.getElementById('chatBadge');
+  if(!badge) return;
+  try{
+    /* Traer todos los mensajes donde yo soy participante */
+    const yo=CURRENT.usuario;
+    /* General: si soy miembro del equipo */
+    let total=0;
+    /* Chat general */
+    const gen=await sbFetch('mensajes','GET',null,'?tipo=eq.general&select=id,emisor,visto_por');
+    if(gen){
+      total += gen.filter(m=>{
+        if(m.emisor===yo) return false;
+        const v=(m.visto_por||'').split(',').filter(Boolean);
+        return !v.includes(yo);
+      }).length;
+    }
+    /* Privados dirigidos a mí */
+    const priv=await sbFetch('mensajes','GET',null,
+      '?tipo=eq.privado&para=eq.'+encodeURIComponent(yo)+'&select=id,emisor,visto_por');
+    if(priv){
+      total += priv.filter(m=>{
+        if(m.emisor===yo) return false;
+        const v=(m.visto_por||'').split(',').filter(Boolean);
+        return !v.includes(yo);
+      }).length;
+    }
+    if(total>0){
+      badge.textContent=total>99?'99+':total;
+      badge.style.display='inline-flex';
+    }else{
+      badge.style.display='none';
+    }
+  }catch(e){}
+}
+
 function fmtHora(iso){
   const d=new Date(iso);
   const hoy=new Date();
