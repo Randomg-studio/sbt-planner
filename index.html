@@ -69,6 +69,7 @@
   .role-Admin{background:var(--gold);color:#3a2a08}
   .role-Editor{background:#cfe3d8;color:var(--moss-d)}
   .role-Community{background:#d8d0e8;color:#4a3a6a}
+  .role-Gerente{background:#cfe0e8;color:#1a4a5e}
   .role-Lector{background:#e2e0ea;color:#5a5a4f}
   .logout{background:rgba(255,255,255,.14);color:#fff;padding:6px 12px;
     border-radius:7px;font-size:12.5px}
@@ -416,6 +417,26 @@
     .chat-main{height:420px}
   }
 
+  /* ---------- SOLICITUDES (gerentes) ---------- */
+  .sol-card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:15px 17px;margin-bottom:11px}
+  .sol-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .sol-head .sid{font-family:'Fraunces',serif;font-weight:600;font-size:13px;
+    color:var(--moss)}
+  .sol-estado{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;
+    text-transform:uppercase;letter-spacing:.04em}
+  .est-pendiente{background:#f6e9d3;color:#9a6a12}
+  .est-convertida{background:#d4e8dc;color:#2f5d4a}
+  .sol-card h4{font-size:15px;font-weight:600;margin-bottom:4px}
+  .sol-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;
+    font-size:12.5px;color:#43463e;margin:8px 0}
+  .sol-grid b{color:var(--ink)}
+  .sol-desc{font-size:13px;line-height:1.5;background:#f7f7fb;border-radius:8px;
+    padding:9px 11px;margin:8px 0;color:#43463e}
+  .sol-foot{display:flex;gap:8px;align-items:center;margin-top:10px;
+    padding-top:10px;border-top:1px solid var(--line)}
+  .sol-quien{font-size:11.5px;color:var(--muted)}
+
   /* ---------- LOADING OVERLAY ---------- */
   #loadingOverlay{position:fixed;inset:0;background:rgba(7,0,46,.88);
     display:none;align-items:center;justify-content:center;z-index:100;
@@ -542,7 +563,7 @@
               <option>Gerente</option><option>Otro</option></select></div>
           <div><label>Rol</label>
             <select id="nuRole" style="width:110px"><option>Lector</option><option>Editor</option>
-              <option>Community</option><option>Admin</option></select></div>
+              <option>Community</option><option>Gerente</option><option>Admin</option></select></div>
           <button class="btn btn-sm" onclick="addUser()">+ Agregar miembro</button>
         </div>
       </div>
@@ -740,6 +761,74 @@
         </div>
       </div>
       <div id="registroLista"></div>
+    </div>
+
+    <!-- ===================== GERENTE: SOLICITAR TRABAJO ===================== -->
+    <div id="view-solicitar" style="display:none">
+      <div class="panel">
+        <h2>Solicitar un trabajo al equipo de contenido</h2>
+        <p>Completa este formulario para pedir un diseño, video, cobertura u otro trabajo. El administrador revisará tu solicitud y la convertirá en una tarea para el equipo.</p>
+      </div>
+      <div class="panel">
+        <div class="field-row">
+          <div class="field"><label>Servicio / Programa</label>
+            <select id="solServicio"></select></div>
+          <div class="field"><label>Tipo de contenido</label>
+            <select id="solTipo">
+              <option>Flyer</option><option>Video</option><option>Foto</option>
+              <option>Guion</option><option>Cobertura de evento</option>
+              <option>Impresión</option><option>Otro</option></select></div>
+        </div>
+        <div class="field"><label>Nombre de la campaña o trabajo</label>
+          <input id="solCampana" placeholder="Ej: Lanzamiento del nuevo servicio"></div>
+        <div class="field"><label>Descripción detallada / referencia</label>
+          <textarea id="solDesc" placeholder="Explica con detalle qué necesitas, incluye referencias, lugar, fechas del evento, etc." style="min-height:120px"></textarea></div>
+        <div class="field-row">
+          <div class="field"><label>Plataformas destino</label>
+            <input id="solPlataforma" placeholder="Facebook, Instagram, TikTok"></div>
+          <div class="field"><label>Fecha límite deseada</label>
+            <input type="date" id="solFecha"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>¿Requiere cobertura de evento?</label>
+            <select id="solCobertura"><option>No</option><option>Sí</option></select></div>
+          <div class="field"><label>¿Requiere impresión?</label>
+            <select id="solImpresion"><option>No</option><option>Sí</option></select></div>
+        </div>
+        <div class="field"><label>Prioridad sugerida</label>
+          <select id="solPrioridad"><option>Media</option><option>Alta</option><option>Baja</option></select></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+          <button class="btn btn-sm" onclick="enviarSolicitud()">📤 Enviar solicitud</button>
+          <span id="solMsg" style="display:none;font-size:13px;color:#2f9e58;font-weight:600">✓ Solicitud enviada al administrador</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== GERENTE: MIS SOLICITUDES ===================== -->
+    <div id="view-missolicitudes" style="display:none">
+      <div class="panel">
+        <h2>Mis solicitudes enviadas</h2>
+        <p>Aquí ves el estado de los trabajos que has pedido. "Pendiente" = el administrador aún no la revisa. "Convertida" = ya es una tarea en proceso.</p>
+      </div>
+      <div id="misSolicitudesLista"></div>
+    </div>
+
+    <!-- ===================== ADMIN: PENDIENTES ===================== -->
+    <div id="view-pendientes" style="display:none">
+      <div class="panel">
+        <h2>Solicitudes pendientes de los gerentes</h2>
+        <p>Trabajos solicitados por los gerentes. Revisa cada uno y, si lo apruebas, conviértelo en una tarea con un clic.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label style="margin:0">Ver:</label>
+          <select id="pendFiltro" onchange="renderPendientes()" style="width:auto">
+            <option value="pendiente">Solo pendientes</option>
+            <option value="">Todas</option>
+            <option value="convertida">Ya convertidas</option>
+          </select>
+          <button class="btn btn-sm btn-ghost" onclick="renderPendientes()">↻ Actualizar</button>
+        </div>
+      </div>
+      <div id="pendientesLista"></div>
     </div>
   </div>
 </div>
@@ -1208,10 +1297,11 @@ const COLS = [
 
 /* ---- pestañas según rol ---- */
 const TABS_BY_ROLE = {
-  Admin:     [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['efemerides','Efemérides'],['chat','Chat'],['control','Panel de control'],['registro','Registro'],['usuarios','Usuarios']],
+  Admin:     [['todas','Todas las tareas'],['mias','Mis tareas'],['pendientes','Pendientes'],['calendario','Calendario'],['efemerides','Efemérides'],['chat','Chat'],['control','Panel de control'],['registro','Registro'],['usuarios','Usuarios']],
   Editor:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Lector:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
-  Community: [['todas','Calendario de tareas'],['cpanel','Mi panel'],['metricas','Métricas'],['efemerides','Efemérides'],['calendario','Calendario'],['chat','Chat']]
+  Community: [['todas','Calendario de tareas'],['cpanel','Mi panel'],['metricas','Métricas'],['efemerides','Efemérides'],['calendario','Calendario'],['chat','Chat']],
+  Gerente:   [['solicitar','Solicitar trabajo'],['missolicitudes','Mis solicitudes'],['chat','Chat']]
 };
 
 let CURRENT=null, editingId=null, activeTab='todas', viewMode='tablero', draftAttach=[], draftRec={};
@@ -1280,7 +1370,7 @@ async function doLogin(){
   document.getElementById('whoName').textContent=u.nombre;
   const rt=document.getElementById('whoRole');
   rt.textContent=u.rol; rt.className='role-tag role-'+u.rol;
-  document.getElementById('btnNew').style.display=(u.rol==='Lector'||u.rol==='Community')?'none':'';
+  document.getElementById('btnNew').style.display=(u.rol==='Lector'||u.rol==='Community'||u.rol==='Gerente')?'none':'';
   buildTabs(); buildServiceFilter();
   activeTab=TABS_BY_ROLE[u.rol][0][0];
   await cargarDatos();
@@ -1307,7 +1397,7 @@ function buildTabs(){
 function switchTab(t){
   activeTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
-  ['tareas','usuarios','metricas','cpanel','efemerides','control','calendario','chat','registro'].forEach(v=>{
+  ['tareas','usuarios','metricas','cpanel','efemerides','control','calendario','chat','registro','solicitar','missolicitudes','pendientes'].forEach(v=>{
     const el=document.getElementById('view-'+v); if(el) el.style.display='none';});
   if(t==='usuarios'){document.getElementById('view-usuarios').style.display='block';renderUsers();}
   else if(t==='metricas'){document.getElementById('view-metricas').style.display='block';renderMetrics();}
@@ -1317,6 +1407,9 @@ function switchTab(t){
   else if(t==='calendario'){document.getElementById('view-calendario').style.display='block';renderCalendarioTab();}
   else if(t==='chat'){document.getElementById('view-chat').style.display='block';abrirChat();}
   else if(t==='registro'){document.getElementById('view-registro').style.display='block';renderRegistro();}
+  else if(t==='solicitar'){document.getElementById('view-solicitar').style.display='block';prepararSolicitud();}
+  else if(t==='missolicitudes'){document.getElementById('view-missolicitudes').style.display='block';renderMisSolicitudes();}
+  else if(t==='pendientes'){document.getElementById('view-pendientes').style.display='block';renderPendientes();}
   else {document.getElementById('view-tareas').style.display='block';render();}
 }
 
@@ -1622,7 +1715,7 @@ function renderUsers(){
       ${['Diseñador','Videógrafo / Filmaker','Community Manager','Editor de contenido','Gerente','Otro']
         .map(c=>`<option ${u.cargo===c?'selected':''}>${c}</option>`).join('')}</select></td>
     <td><select id="ur-${i}">
-      ${['Admin','Editor','Community','Lector'].map(r=>
+      ${['Admin','Editor','Community','Gerente','Lector'].map(r=>
         `<option ${u.rol===r?'selected':''}>${r}</option>`).join('')}</select></td>
     <td><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;
       background:${inactivo?'#e9e7d0':'#cfe3d8'};color:${inactivo?'#8a8550':'#2f5d4a'}">
@@ -2540,6 +2633,174 @@ function fmtFechaHora(iso){
   const hh=d.getHours().toString().padStart(2,'0');
   const mi=d.getMinutes().toString().padStart(2,'0');
   return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
+}
+/* ===================== MÓDULO GERENTES: SOLICITUDES ===================== */
+
+/* Llenar el select de servicios del formulario del gerente */
+function prepararSolicitud(){
+  const sel=document.getElementById('solServicio');
+  if(sel && sel.options.length===0){
+    sel.innerHTML=SERVICIOS.map(s=>`<option>${s}</option>`).join('');
+  }
+}
+
+/* El gerente envía una solicitud */
+async function enviarSolicitud(){
+  const campana=document.getElementById('solCampana').value.trim();
+  const desc=document.getElementById('solDesc').value.trim();
+  if(!campana||!desc){
+    alert('Completa al menos el nombre de la campaña y la descripción.');
+    return;
+  }
+  const sol={
+    gerente: CURRENT.usuario,
+    gerente_nombre: CURRENT.nombre,
+    servicio: document.getElementById('solServicio').value,
+    tipo: document.getElementById('solTipo').value,
+    campana: campana,
+    descripcion: desc,
+    plataforma: document.getElementById('solPlataforma').value.trim(),
+    fecha_limite: document.getElementById('solFecha').value,
+    cobertura: document.getElementById('solCobertura').value,
+    impresion: document.getElementById('solImpresion').value,
+    prioridad: document.getElementById('solPrioridad').value,
+    estado: 'pendiente',
+    fecha: new Date().toISOString()
+  };
+  try{
+    await sbFetch('solicitudes','POST',sol);
+    /* limpiar formulario */
+    document.getElementById('solCampana').value='';
+    document.getElementById('solDesc').value='';
+    document.getElementById('solPlataforma').value='';
+    document.getElementById('solFecha').value='';
+    const msg=document.getElementById('solMsg');
+    msg.style.display='inline';
+    setTimeout(()=>msg.style.display='none',4000);
+  }catch(err){
+    alert('No se pudo enviar la solicitud. Revisa tu conexión.\n'+err.message);
+  }
+}
+
+/* El gerente ve sus propias solicitudes */
+async function renderMisSolicitudes(){
+  const cont=document.getElementById('misSolicitudesLista');
+  cont.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px">Cargando…</div>';
+  try{
+    const sols=await sbFetch('solicitudes','GET',null,
+      '?gerente=eq.'+encodeURIComponent(CURRENT.usuario)+'&order=fecha.desc');
+    if(!sols||sols.length===0){
+      cont.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px">Aún no has enviado solicitudes.</div>';
+      return;
+    }
+    cont.innerHTML=sols.map(s=>tarjetaSolicitud(s,false)).join('');
+  }catch(e){
+    cont.innerHTML='<div style="color:var(--clay);font-size:13px;padding:10px">No se pudieron cargar las solicitudes.</div>';
+  }
+}
+
+/* El Admin ve las solicitudes pendientes */
+async function renderPendientes(){
+  const cont=document.getElementById('pendientesLista');
+  cont.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px">Cargando solicitudes…</div>';
+  const filtro=document.getElementById('pendFiltro').value;
+  try{
+    let q='?order=fecha.desc';
+    if(filtro) q='?estado=eq.'+filtro+'&order=fecha.desc';
+    const sols=await sbFetch('solicitudes','GET',null,q);
+    if(!sols||sols.length===0){
+      cont.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px">No hay solicitudes'+(filtro==='pendiente'?' pendientes':'')+'.</div>';
+      return;
+    }
+    cont.innerHTML=sols.map(s=>tarjetaSolicitud(s,true)).join('');
+  }catch(e){
+    cont.innerHTML='<div style="color:var(--clay);font-size:13px;padding:10px">No se pudieron cargar. ¿Creaste la tabla "solicitudes" en Supabase?</div>';
+  }
+}
+
+/* Tarjeta de una solicitud — esAdmin decide si muestra el botón Convertir */
+function tarjetaSolicitud(s,esAdmin){
+  const conv=s.estado==='convertida';
+  return `<div class="sol-card">
+    <div class="sol-head">
+      <span class="sid">Solicitud #${s.id}</span>
+      <span class="sol-estado est-${s.estado}">${conv?'Convertida en tarea':'Pendiente'}</span>
+    </div>
+    <h4>${esc(s.campana)}</h4>
+    <div class="sol-grid">
+      <div>📋 Servicio: <b>${esc(s.servicio)}</b></div>
+      <div>🎬 Tipo: <b>${esc(s.tipo)}</b></div>
+      <div>📱 Plataformas: <b>${esc(s.plataforma)||'—'}</b></div>
+      <div>📅 Fecha deseada: <b>${s.fecha_limite?fmtDate(s.fecha_limite):'—'}</b></div>
+      <div>🎥 Cobertura: <b>${esc(s.cobertura)}</b></div>
+      <div>🖨️ Impresión: <b>${esc(s.impresion)}</b></div>
+      <div>⚡ Prioridad: <b>${esc(s.prioridad)}</b></div>
+    </div>
+    <div class="sol-desc">${esc(s.descripcion)}</div>
+    <div class="sol-foot">
+      <span class="sol-quien">Solicitado por ${esc(s.gerente_nombre)} · ${fmtFechaHora(s.fecha)}</span>
+      ${esAdmin && !conv ? `<button class="btn btn-sm" style="margin-left:auto"
+        onclick="convertirEnTarea(${s.id})">✅ Convertir en tarea</button>` : ''}
+      ${conv && s.tarea_id ? `<span style="margin-left:auto;font-size:12px;color:var(--moss);font-weight:600">→ Tarea ${esc(s.tarea_id)}</span>`:''}
+    </div>
+  </div>`;
+}
+
+/* El Admin convierte una solicitud en tarea */
+async function convertirEnTarea(solId){
+  if(!confirm('¿Convertir esta solicitud en una tarea del sistema?\n\nSe creará una tarea nueva con estos datos y la solicitud quedará marcada como convertida.')){
+    return;
+  }
+  try{
+    /* traer la solicitud */
+    const arr=await sbFetch('solicitudes','GET',null,'?id=eq.'+solId);
+    if(!arr||!arr[0]){alert('No se encontró la solicitud.');return;}
+    const s=arr[0];
+
+    /* generar ID de tarea nuevo */
+    let maxN=0;
+    TASKS.forEach(t=>{
+      const m=(t.id||'').match(/SBT-(\d+)/);
+      if(m){const n=parseInt(m[1],10);if(n>maxN)maxN=n;}
+    });
+    const nuevoId='SBT-'+String(maxN+1).padStart(3,'0');
+
+    /* armar la tarea con los datos de la solicitud */
+    const tarea={
+      id:nuevoId,
+      fecha_pub:new Date().toLocaleDateString('es-PE'),
+      responsable:'', colaborador:s.gerente_nombre||'',
+      area:'', tipo:s.tipo||'Otro', plataforma:s.plataforma||'',
+      servicio:s.servicio||'Sin definir',
+      objetivo:s.campana+'. '+s.descripcion,
+      prioridad:s.prioridad||'Media', estado:'En proceso',
+      fecha_inicio:s.fecha_limite||'', fecha_fin:'',
+      copy:'', observaciones:'Generada desde la solicitud #'+s.id+
+        ' del gerente '+(s.gerente_nombre||'')+
+        '. Cobertura: '+s.cobertura+'. Impresión: '+s.impresion+'.',
+      recursos: s.cobertura==='Sí'?{cobertura:{on:true}}:{},
+      adjuntos:[], metricas:{},
+      _upd:{who:CURRENT.nombre,when:new Date()}
+    };
+
+    /* guardar la tarea en Supabase */
+    await saveTaskToDB(tarea, true);
+    TASKS.push(tarea);
+
+    /* marcar la solicitud como convertida */
+    await sbFetch('solicitudes','PATCH',
+      {estado:'convertida', tarea_id:nuevoId},
+      '?id=eq.'+solId);
+
+    /* registrar la acción */
+    registrarAccion('crear', nuevoId,
+      'Tarea creada desde solicitud #'+s.id+' de '+(s.gerente_nombre||''));
+
+    alert('✅ Solicitud convertida en la tarea '+nuevoId+'.\n\nYa puedes asignarle un responsable en "Todas las tareas".');
+    renderPendientes();
+  }catch(err){
+    alert('No se pudo convertir la solicitud.\n'+err.message);
+  }
 }
 
 </script>
