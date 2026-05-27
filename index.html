@@ -847,9 +847,13 @@
 
       <!-- COPY -->
       <div class="field" id="copyWrap" style="margin-top:18px">
-        <label>Copy generado</label><div class="copybox" id="mCopy"></div>
+        <label>Copy de la publicación</label>
+        <textarea id="mCopy" placeholder="Escribe aquí el copy o texto de la publicación…"
+          style="min-height:110px"></textarea>
       </div>
-      <div class="field"><label>Observaciones</label><textarea id="mObs"></textarea></div>
+      <div class="field"><label>Observaciones</label>
+        <textarea id="mObs" placeholder="Notas, indicaciones o detalles adicionales…"
+          style="min-height:130px"></textarea></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cerrar</button>
@@ -1187,6 +1191,12 @@ let TASKS = [...TASKS_DEFAULT];
 
 
 
+const SERVICIOS = ['SBT','La Casa del Sabor','FONASOL (Programa de crédito de sepultura)',
+  'Lavadero','Cocheras','Snack','Cancha sintética','Cementerio',
+  'Manos que alimentan corazones','SAA (Servicio de Apoyo Alimentario)',
+  'SIEF (Servicio Integral Especializado para la Prevención de la Violencia en las Familias)',
+  'Vallas Publicitarias','Programas Sociales','Sin definir'];
+
 const ST_COLOR = {'En proceso':'var(--st-proceso)','Diseñado':'var(--st-finalizado)',
   'Publicado/Finalizado':'var(--st-publicado)','Programado':'var(--st-programado)','Sin estado':'var(--st-sin)'};
 const COLS = [
@@ -1313,8 +1323,17 @@ function switchTab(t){
 /* ===================== FILTROS / VISTA ===================== */
 function buildServiceFilter(){
   const sel=document.getElementById('fServicio');
-  [...new Set(TASKS.map(t=>t.servicio))].sort().forEach(s=>{
+  /* Limpiar opciones previas excepto la primera ("Todos los servicios") */
+  while(sel.options.length>1) sel.remove(1);
+  /* Listar los 14 servicios oficiales + cualquier servicio viejo que exista en tareas */
+  const todos=[...new Set([...SERVICIOS, ...TASKS.map(t=>t.servicio).filter(Boolean)])];
+  todos.forEach(s=>{
     const o=document.createElement('option');o.textContent=s;sel.appendChild(o);});
+  /* También llenar el menú de servicios del formulario de tareas */
+  const mSel=document.getElementById('mServicio');
+  if(mSel){
+    mSel.innerHTML=SERVICIOS.map(s=>`<option>${s}</option>`).join('');
+  }
 }
 function setView(m){
   viewMode=m;
@@ -1446,8 +1465,8 @@ function fillModal(t,isNew){
   document.getElementById('mFechaFin').value=t.fecha_fin||'';
   document.getElementById('mPlataforma').value=t.plataforma||'';
   document.getElementById('mObs').value=t.observaciones||'';
-  document.getElementById('mCopy').textContent=t.copy||'(Sin copy)';
-  document.getElementById('copyWrap').style.display=t.copy?'block':(isNew?'none':'block');
+  document.getElementById('mCopy').value=t.copy||'';
+  document.getElementById('copyWrap').style.display='block';
   /* recursos */
   draftRec=JSON.parse(JSON.stringify(t.recursos||{}));
   RECURSOS.forEach(r=>{
@@ -1468,9 +1487,9 @@ function applyPermissions(){
   const rol=CURRENT.rol;
   const lock=document.getElementById('lockNote');
   const save=document.getElementById('btnSave');
-  const editorFields=['mResponsable','mEstado'];
+  const editorFields=['mEstado'];
   const allFields=['mEstado','mObjetivo','mResponsable','mColaborador','mServicio',
-    'mPrioridad','mTipo','mFechaIni','mFechaFin','mPlataforma','mObs'];
+    'mPrioridad','mTipo','mFechaIni','mFechaFin','mPlataforma','mCopy','mObs'];
   const setRO=(id,ro)=>{const el=document.getElementById(id);if(!el)return;
     if(el.tagName==='SELECT'){el.disabled=ro;el.classList.toggle('ro',ro);}
     else if(el.hasAttribute('contenteditable')){el.contentEditable=!ro;el.classList.toggle('ro',ro);
@@ -1489,7 +1508,7 @@ function applyPermissions(){
     save.style.display='none';
   } else if(rol==='Editor'){
     lock.style.display='block';
-    lock.textContent='✏️ Como Editor solo puedes cambiar Responsable y Estado.';
+    lock.textContent='✏️ Como Editor solo puedes cambiar el Estado de la tarea.';
     allFields.forEach(f=>setRO(f,!editorFields.includes(f)));lockRes(true);
     az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
     save.style.display='';
@@ -1552,7 +1571,7 @@ async function saveTask(){
     fecha_inicio:document.getElementById('mFechaIni').value,
     fecha_fin:document.getElementById('mFechaFin').value,
     plataforma:document.getElementById('mPlataforma').value,
-    copy:document.getElementById('mCopy').textContent.replace('(Sin copy)',''),
+    copy:document.getElementById('mCopy').value,
     observaciones:document.getElementById('mObs').value,
     recursos:collectRec(),adjuntos:draftAttach.slice()
   };
@@ -1561,7 +1580,7 @@ async function saveTask(){
     const t=TASKS.find(x=>x.id===editingId);
     _estadoAnterior=t?t.estado:null;
     t._upd={who:CURRENT.nombre,when:new Date()};
-    if(CURRENT.rol==='Editor'){t.responsable=data.responsable;t.estado=data.estado;}
+    if(CURRENT.rol==='Editor'){t.estado=data.estado;}
     else{Object.assign(t,data);}
   } else {
     data.metricas={}; data._upd={who:CURRENT.nombre,when:new Date()};
