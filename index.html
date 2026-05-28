@@ -1625,24 +1625,27 @@ function applyPermissions(){
     allFields.forEach(f=>setRO(f,true));lockRes(true);
     az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
     save.style.display='none';
-  } else if(rol==='Editor'||rol==='Community'){
-    /* ¿Esta tarea es del usuario? (él es el responsable) */
+  } else if(rol==='Community'){
+    /* Community puede cambiar el estado de CUALQUIER tarea */
+    lock.style.display='block';
+    lock.textContent='📱 Como Community puedes cambiar el Estado de las tareas (En proceso, Diseñado, Publicado/Finalizado).';
+    allFields.forEach(f=>setRO(f,!editorFields.includes(f)));lockRes(true);
+    az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
+    save.style.display='';
+  } else if(rol==='Editor'){
+    /* Editor: solo el estado y solo de SUS propias tareas */
     const t = editingId ? TASKS.find(x=>x.id===editingId) : null;
     const miNombre = (CURRENT.nombre||'').replace(' (Admin)','').trim().toLowerCase();
     const esMia = t && (t.responsable||'').trim().toLowerCase()===miNombre;
 
     lock.style.display='block';
     if(!esMia && editingId){
-      /* No es su tarea: solo puede mirar */
       lock.textContent='👁️ Solo puedes ver esta tarea. Únicamente puedes cambiar el estado de las tareas asignadas a ti.';
       allFields.forEach(f=>setRO(f,true));lockRes(true);
       az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
       save.style.display='none';
     }else{
-      /* Es su tarea: puede cambiar el estado */
-      lock.textContent= rol==='Community'
-        ? '📱 Como Community puedes cambiar el Estado de tu tarea (En proceso, Diseñado, Publicado/Finalizado).'
-        : '✏️ Como Editor solo puedes cambiar el Estado de tu tarea.';
+      lock.textContent='✏️ Como Editor solo puedes cambiar el Estado de tu tarea.';
       allFields.forEach(f=>setRO(f,!editorFields.includes(f)));lockRes(true);
       az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
       save.style.display='';
@@ -1758,7 +1761,12 @@ async function saveTask(){
     const t=TASKS.find(x=>x.id===editingId);
     _estadoAnterior=t?t.estado:null;
     t._upd={who:CURRENT.nombre,when:new Date()};
-    if(CURRENT.rol==='Editor'||CURRENT.rol==='Community'){
+    if(CURRENT.rol==='Community'){
+      /* Community puede cambiar el estado de cualquier tarea */
+      t.estado=data.estado;
+    }
+    else if(CURRENT.rol==='Editor'){
+      /* Editor: solo el estado y solo de sus propias tareas */
       const miNombre=(CURRENT.nombre||'').replace(' (Admin)','').trim().toLowerCase();
       const esMia=(t.responsable||'').trim().toLowerCase()===miNombre;
       if(!esMia){
