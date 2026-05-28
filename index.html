@@ -1399,6 +1399,7 @@ async function doLogin(){
   /* Actualizar contador de mensajes nuevos cada 15 segundos */
   actualizarBadgeChat();
   setInterval(actualizarBadgeChat, 15000);
+  actualizarBadgeEfe();
 }
 function doLogout(){
   CURRENT=null;
@@ -1413,7 +1414,9 @@ document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='
 function buildTabs(){
   const bar=document.getElementById('tabBar');
   bar.innerHTML=TABS_BY_ROLE[CURRENT.rol].map(([k,l])=>{
-    const badge = k==='chat' ? '<span class="tab-badge" id="chatBadge" style="display:none">0</span>' : '';
+    let badge = '';
+    if(k==='chat') badge = '<span class="tab-badge" id="chatBadge" style="display:none">0</span>';
+    else if(k==='efemerides') badge = '<span class="tab-badge" id="efeBadge" style="display:none;background:#c98f2c">0</span>';
     return `<button class="tab" data-tab="${k}" onclick="switchTab('${k}')">${l}${badge}</button>`;
   }).join('');
 }
@@ -1616,15 +1619,17 @@ function applyPermissions(){
     if(r.detalle){const di=document.getElementById('rd-'+r.key);if(di)di.readOnly=ro;}});};
   const az=document.getElementById('attachZone'),li=document.getElementById('linkInput');
 
-  if(rol==='Lector'||rol==='Community'){
+  if(rol==='Lector'){
     lock.style.display='block';
     lock.textContent='👁️ Tu perfil solo puede ver esta tarea, no editarla.';
     allFields.forEach(f=>setRO(f,true));lockRes(true);
     az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
     save.style.display='none';
-  } else if(rol==='Editor'){
+  } else if(rol==='Editor'||rol==='Community'){
     lock.style.display='block';
-    lock.textContent='✏️ Como Editor solo puedes cambiar el Estado de la tarea.';
+    lock.textContent= rol==='Community'
+      ? '📱 Como Community puedes ver la tarea y cambiar su Estado (En proceso, Diseñado, Publicado/Finalizado).'
+      : '✏️ Como Editor solo puedes cambiar el Estado de la tarea.';
     allFields.forEach(f=>setRO(f,!editorFields.includes(f)));lockRes(true);
     az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
     save.style.display='';
@@ -1720,7 +1725,7 @@ async function saveTask(){
     const t=TASKS.find(x=>x.id===editingId);
     _estadoAnterior=t?t.estado:null;
     t._upd={who:CURRENT.nombre,when:new Date()};
-    if(CURRENT.rol==='Editor'){t.estado=data.estado;}
+    if(CURRENT.rol==='Editor'||CURRENT.rol==='Community'){t.estado=data.estado;}
     else{Object.assign(t,data);}
   } else {
     data.metricas={}; data._upd={who:CURRENT.nombre,when:new Date()};
@@ -1996,6 +2001,9 @@ function daysUntil(d){
 function renderEfe(){
   const sorted=EFEMERIDES.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const soon=sorted.filter(e=>{const d=daysUntil(e.fecha);return d>=0&&d<=7;});
+  /* Al ver la pestaña Efemérides, se marca como visto y desaparece el contador */
+  efeVistas=true;
+  actualizarBadgeEfe();
   document.getElementById('efeAlerts').innerHTML=soon.map(e=>{
     const d=daysUntil(e.fecha);
     return `<div class="alert-banner">🔔 ${d===0?'¡HOY!':'En '+d+' día'+(d>1?'s':'')}: <b>${esc(e.nombre)}</b> — ${esc(e.nota)}</div>`;
@@ -2569,19 +2577,20 @@ async function renderMensajes(){
     msgs.innerHTML=ms.map(m=>{
       const mio=m.emisor===CURRENT.usuario;
       const deU=USERS.find(x=>x.usuario===m.emisor);
-      /* Vistos: lista de usuarios que abrieron la conversación después de este mensaje */
+      /* Vistos: usuarios que abrieron la conversación (sin contar al propio emisor) */
       const vistos=(m.visto_por||'').split(',').filter(Boolean).filter(u=>u!==m.emisor);
       const todosVieron = participantes.every(p => p===m.emisor || vistos.includes(p));
-      /* Check: ✓ = enviado, ✓✓ azul = todos lo vieron */
+      /* Check: ✓ = enviado, ✓✓ azul = visto */
       let checkHTML='';
       if(mio){
         checkHTML = todosVieron
-          ? '<span class="msg-check visto" title="Visto por todos">✓✓</span>'
+          ? '<span class="msg-check visto" title="Visto">✓✓</span>'
           : '<span class="msg-check" title="Enviado">✓</span>';
       }
-      /* Solo el Admin ve la lista de quiénes lo vieron */
+      /* En el chat GRUPAL y solo si soy Admin: ver lista detallada de quiénes lo vieron.
+         En chats privados no se muestra esta línea — el ✓✓ ya basta. */
       let vistosAdmin='';
-      if(mio && CURRENT.rol==='Admin' && vistos.length>0){
+      if(mio && CURRENT.rol==='Admin' && chatActual.tipo==='general' && vistos.length>0){
         const nombres = vistos.map(u=>{const x=USERS.find(y=>y.usuario===u);return x?x.nombre.split(' ')[0]:u;}).join(', ');
         vistosAdmin = `<div class="msg-vistos-tip" title="${esc(nombres)}">👁 Visto por ${vistos.length} · ${esc(nombres)}</div>`;
       }
@@ -2666,6 +2675,22 @@ function ponerEmoji(e){
   document.getElementById('emojiPanel').style.display='none';
 }
 /* ---- Contador de mensajes nuevos en la pestaña Chat ---- */
+/* ---- Contador de efemérides próximas en la pestaña ---- */
+let efeVistas=false;
+function actualizarBadgeEfe(){
+  const badge=document.getElementById('efeBadge');
+  if(!badge) return;
+  /* Si ya entró a verlas en esta sesión, no mostrar el número */
+  if(efeVistas){ badge.style.display='none'; return; }
+  const proximas=EFEMERIDES.filter(e=>{const d=daysUntil(e.fecha);return d>=0&&d<=7;}).length;
+  if(proximas>0){
+    badge.textContent=proximas;
+    badge.style.display='inline-flex';
+  }else{
+    badge.style.display='none';
+  }
+}
+
 async function actualizarBadgeChat(){
   if(!CURRENT) return;
   const badge=document.getElementById('chatBadge');
