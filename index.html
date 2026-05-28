@@ -1626,13 +1626,27 @@ function applyPermissions(){
     az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
     save.style.display='none';
   } else if(rol==='Editor'||rol==='Community'){
+    /* ¿Esta tarea es del usuario? (él es el responsable) */
+    const t = editingId ? TASKS.find(x=>x.id===editingId) : null;
+    const miNombre = (CURRENT.nombre||'').replace(' (Admin)','').trim().toLowerCase();
+    const esMia = t && (t.responsable||'').trim().toLowerCase()===miNombre;
+
     lock.style.display='block';
-    lock.textContent= rol==='Community'
-      ? '📱 Como Community puedes ver la tarea y cambiar su Estado (En proceso, Diseñado, Publicado/Finalizado).'
-      : '✏️ Como Editor solo puedes cambiar el Estado de la tarea.';
-    allFields.forEach(f=>setRO(f,!editorFields.includes(f)));lockRes(true);
-    az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
-    save.style.display='';
+    if(!esMia && editingId){
+      /* No es su tarea: solo puede mirar */
+      lock.textContent='👁️ Solo puedes ver esta tarea. Únicamente puedes cambiar el estado de las tareas asignadas a ti.';
+      allFields.forEach(f=>setRO(f,true));lockRes(true);
+      az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
+      save.style.display='none';
+    }else{
+      /* Es su tarea: puede cambiar el estado */
+      lock.textContent= rol==='Community'
+        ? '📱 Como Community puedes cambiar el Estado de tu tarea (En proceso, Diseñado, Publicado/Finalizado).'
+        : '✏️ Como Editor solo puedes cambiar el Estado de tu tarea.';
+      allFields.forEach(f=>setRO(f,!editorFields.includes(f)));lockRes(true);
+      az.style.pointerEvents='none';az.style.opacity='.5';li.disabled=true;
+      save.style.display='';
+    }
   } else {
     lock.style.display='none';
     allFields.forEach(f=>setRO(f,false));lockRes(false);
@@ -1688,11 +1702,30 @@ function renderAttach(){
   const box=document.getElementById('attachList');
   box.innerHTML=draftAttach.map((a,i)=>{
     const ic=a.tipo==='imagen'?'🖼️':a.tipo==='enlace'?'🔗':'📄';
-    const nm=a.tipo==='enlace'?`<a href="${a.data}" target="_blank" style="color:var(--moss)">${esc(a.nombre)}</a>`:esc(a.nombre);
     const canDel=CURRENT.rol==='Admin';
-    return `<div class="attach-row"><span class="ico">${ic}</span>
-      <span class="nm">${nm}</span>
-      ${canDel?`<button class="del" onclick="delAttach(${i})">×</button>`:''}</div>`;
+    /* Vista previa de imagen */
+    let preview='';
+    if(a.tipo==='imagen' && a.data){
+      preview=`<img src="${a.data}" alt="${esc(a.nombre)}"
+        style="max-width:100%;max-height:220px;border-radius:8px;margin-top:8px;cursor:pointer"
+        onclick="window.open('${a.data}','_blank')">`;
+    }
+    /* Nombre + acción */
+    let linea='';
+    if(a.tipo==='enlace'){
+      linea=`<a href="${a.data}" target="_blank" style="color:var(--moss)">${esc(a.nombre)}</a>`;
+    }else{
+      /* Botón de descarga (todos pueden descargar) */
+      linea=`<span class="nm">${esc(a.nombre)}</span>
+        <a href="${a.data}" download="${esc(a.nombre)}" class="btn btn-sm btn-ghost"
+          style="padding:4px 10px;font-size:12px;text-decoration:none">⬇ Descargar</a>`;
+    }
+    return `<div class="attach-row" style="flex-wrap:wrap">
+      <span class="ico">${ic}</span>
+      ${linea}
+      ${canDel?`<button class="del" onclick="delAttach(${i})">×</button>`:''}
+      ${preview?`<div style="width:100%">${preview}</div>`:''}
+    </div>`;
   }).join('');
 }
 function delAttach(i){draftAttach.splice(i,1);renderAttach();}
@@ -1725,7 +1758,15 @@ async function saveTask(){
     const t=TASKS.find(x=>x.id===editingId);
     _estadoAnterior=t?t.estado:null;
     t._upd={who:CURRENT.nombre,when:new Date()};
-    if(CURRENT.rol==='Editor'||CURRENT.rol==='Community'){t.estado=data.estado;}
+    if(CURRENT.rol==='Editor'||CURRENT.rol==='Community'){
+      const miNombre=(CURRENT.nombre||'').replace(' (Admin)','').trim().toLowerCase();
+      const esMia=(t.responsable||'').trim().toLowerCase()===miNombre;
+      if(!esMia){
+        alert('Solo puedes cambiar el estado de las tareas asignadas a ti.');
+        return;
+      }
+      t.estado=data.estado;
+    }
     else{Object.assign(t,data);}
   } else {
     data.metricas={}; data._upd={who:CURRENT.nombre,when:new Date()};
