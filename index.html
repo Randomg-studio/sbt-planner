@@ -1734,7 +1734,9 @@ function renderAttach(){
 function delAttach(i){draftAttach.splice(i,1);renderAttach();}
 
 async function saveTask(){
-  if(CURRENT.rol==='Lector'||CURRENT.rol==='Community')return;
+  /* Solo el Lector está bloqueado por completo. Community y Editor sí pueden guardar
+     (con sus restricciones de qué pueden cambiar, definidas más abajo). */
+  if(CURRENT.rol==='Lector')return;
   const collectRec=()=>{const r={};RECURSOS.forEach(x=>{
     const on=document.getElementById('rc-'+x.key).checked;
     if(on){r[x.key]={on:true};
