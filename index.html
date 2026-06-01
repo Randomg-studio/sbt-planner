@@ -14,7 +14,7 @@
     --moss:#0D0054; --moss-d:#07002e; --gold:#c98f2c; --clay:#b1542f;
     --line:#cfccdd; --muted:#6c6a7e;
     --st-proceso:#c98f2c; --st-finalizado:#0D0054;
-    --st-publicado:#3a6ea5; --st-programado:#8a6cb0; --st-sin:#9a9aa6;
+    --st-publicado:#3a6ea5; --st-programado:#8a6cb0; --st-sin:#9a9aa6; --st-norealizado:#b04a3a;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Spline Sans',sans-serif;background:var(--paper);color:var(--ink);
@@ -575,6 +575,8 @@
             <select id="nuCargo" style="width:130px">
               <option>Diseñador</option><option>Videógrafo / Filmaker</option>
               <option>Community Manager</option><option>Editor de contenido</option>
+              <option>Gerente General</option><option>Gerencia de Imagen</option>
+              <option>Gerencia de Programas Sociales</option><option>Presidencia</option>
               <option>Gerente</option><option>Otro</option></select></div>
           <div><label>Rol</label>
             <select id="nuRole" style="width:110px"><option>Lector</option><option>Editor</option>
@@ -700,6 +702,7 @@
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-proceso);margin-right:4px"></span>En proceso</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-programado);margin-right:4px"></span>Programado</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-publicado);margin-right:4px"></span>Publicado/Finalizado</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-norealizado);margin-right:4px"></span>No realizado</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-finalizado);margin-right:4px"></span>Diseñado</span>
         </div>
         <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
@@ -731,6 +734,7 @@
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-finalizado);margin-right:4px"></span>Diseñado</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-programado);margin-right:4px"></span>Programado</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-publicado);margin-right:4px"></span>Publicado/Finalizado</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-norealizado);margin-right:4px"></span>No realizado</span>
         </div>
         <div id="calTabGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
       </div>
@@ -862,7 +866,7 @@
         <div class="field"><label>ID</label><input id="mId" readonly class="ro"></div>
         <div class="field"><label>Estado</label>
           <select id="mEstado"><option>Sin estado</option><option>En proceso</option>
-            <option>Programado</option><option>Publicado/Finalizado</option><option>Diseñado</option></select>
+            <option>Programado</option><option>Publicado/Finalizado</option><option>Diseñado</option><option>No realizado</option></select>
         </div>
       </div>
       <div class="field">
@@ -1301,12 +1305,13 @@ const SERVICIOS = ['SBT','La Casa del Sabor','FONASOL (Programa de crédito de s
   'Vallas Publicitarias','Programas Sociales','Sin definir'];
 
 const ST_COLOR = {'En proceso':'var(--st-proceso)','Diseñado':'var(--st-finalizado)',
-  'Publicado/Finalizado':'var(--st-publicado)','Programado':'var(--st-programado)','Sin estado':'var(--st-sin)'};
+  'Publicado/Finalizado':'var(--st-publicado)','Programado':'var(--st-programado)','No realizado':'var(--st-norealizado)','Sin estado':'var(--st-sin)'};
 const COLS = [
   {key:'En proceso', label:'En proceso', color:'var(--st-proceso)'},
   {key:'Diseñado', label:'Diseñado', color:'var(--st-finalizado)'},
   {key:'Programado', label:'Programado', color:'var(--st-programado)'},
-  {key:'Publicado/Finalizado', label:'Publicado/Finalizado', color:'var(--st-publicado)'}
+  {key:'Publicado/Finalizado', label:'Publicado/Finalizado', color:'var(--st-publicado)'},
+  {key:'No realizado', label:'No realizado', color:'var(--st-norealizado)'}
 ];
 
 /* ---- pestañas según rol ---- */
@@ -1477,18 +1482,25 @@ function actualizarSelectsEquipo(){
   selResp.innerHTML = '<option value="">— Sin asignar —</option>' +
     equipoUnico.map(n => `<option>${esc(n)}</option>`).join('');
 
-  /* Colaboradores: Gerentes activos + opciones fijas de alto mando */
-  const gerentes = USERS
-    .filter(u => u.activo!==false && u.rol==='Gerente')
-    .map(u => (u.nombre||'').trim())
+  /* Colaboradores: usuarios con cargo de gerencia o rol Gerente, en formato "Nombre — Cargo" */
+  const cargosGerencia=['Gerente General','Gerencia de Imagen',
+    'Gerencia de Programas Sociales','Presidencia','Gerente'];
+  const colaboradores = USERS
+    .filter(u => u.activo!==false)
+    .filter(u => u.rol==='Gerente' || cargosGerencia.includes(u.cargo))
+    .map(u => {
+      const nombre = (u.nombre||'').trim();
+      const cargo  = (u.cargo||'').trim();
+      /* Si tiene un cargo específico, mostrar "Nombre — Cargo".
+         Si su cargo es solo "Gerente" o no tiene, mostrar solo el nombre. */
+      if(cargo && cargo!=='Gerente' && cargo!=='Otro') return nombre+' — '+cargo;
+      return nombre;
+    })
     .filter(Boolean);
-  const gerentesUnicos = [...new Set(gerentes)].sort();
+  const colabsUnicos = [...new Set(colaboradores)].sort();
 
   selCol.innerHTML = '<option value="">— Ninguno —</option>' +
-    gerentesUnicos.map(n => `<option>${esc(n)}</option>`).join('') +
-    '<option>Gerente General</option>' +
-    '<option>Gerencia de Imagen</option>' +
-    '<option>Presidencia</option>' +
+    colabsUnicos.map(n => `<option>${esc(n)}</option>`).join('') +
     '<option>Otro</option>';
 
   /* Restaurar selección si todavía existe en la lista nueva */
@@ -1866,7 +1878,7 @@ function renderUsers(){
     </td>
     <td><input id="ue-${i}"  value="${esc(u.email)}"   style="width:165px" placeholder="correo@gmail.com"></td>
     <td><select id="uc-${i}">
-      ${['Diseñador','Videógrafo / Filmaker','Community Manager','Editor de contenido','Gerente','Otro']
+      ${['Diseñador','Videógrafo / Filmaker','Community Manager','Editor de contenido','Gerente General','Gerencia de Imagen','Gerencia de Programas Sociales','Presidencia','Gerente','Otro']
         .map(c=>`<option ${u.cargo===c?'selected':''}>${c}</option>`).join('')}</select></td>
     <td><select id="ur-${i}">
       ${['Admin','Editor','Community','Gerente','Lector'].map(r=>
