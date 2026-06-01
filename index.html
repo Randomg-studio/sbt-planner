@@ -829,6 +829,23 @@
         </div>
         <div class="field"><label>Prioridad sugerida</label>
           <select id="solPrioridad"><option>Media</option><option>Alta</option><option>Baja</option></select></div>
+
+        <!-- Foto de referencia (opcional) -->
+        <div class="field">
+          <label>Foto de referencia (opcional)</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px">
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('solFoto').click()">
+              📷 Adjuntar foto
+            </button>
+            <input type="file" id="solFoto" accept="image/*" style="display:none" onchange="leerFotoSolicitud(event)">
+            <span id="solFotoNombre" style="font-size:12.5px;color:var(--muted)">Ninguna foto adjunta</span>
+            <button type="button" id="solFotoQuitar" class="btn btn-sm btn-ghost"
+              style="display:none;background:var(--clay);color:#fff" onclick="quitarFotoSolicitud()">× Quitar</button>
+          </div>
+          <div id="solFotoPreview" style="margin-top:10px"></div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:4px">Máx 1.5 MB. Se mostrará al administrador junto con tu solicitud.</p>
+        </div>
+
         <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
           <button class="btn btn-sm" onclick="enviarSolicitud()">📤 Enviar solicitud</button>
           <span id="solMsg" style="display:none;font-size:13px;color:#2f9e58;font-weight:600">✓ Solicitud enviada al administrador</span>
@@ -3168,6 +3185,41 @@ function prepararSolicitud(){
   }
 }
 
+/* ---- Manejo de foto adjunta en solicitudes (gerente) ---- */
+let solFotoData = '';   /* data URL de la foto cargada */
+
+function leerFotoSolicitud(ev){
+  const f = ev.target.files[0];
+  if(!f) return;
+  if(!f.type.startsWith('image/')){
+    alert('Solo puedes adjuntar imágenes.');
+    ev.target.value = '';
+    return;
+  }
+  if(f.size > 1.5*1024*1024){
+    alert('La foto es demasiado pesada ('+(f.size/1024/1024).toFixed(1)+' MB). El máximo es 1.5 MB.\n\nIntenta con una versión más liviana o usa una herramienta para comprimirla.');
+    ev.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    solFotoData = e.target.result;
+    document.getElementById('solFotoNombre').textContent = f.name+' ('+(f.size/1024).toFixed(0)+' KB)';
+    document.getElementById('solFotoQuitar').style.display = 'inline-flex';
+    document.getElementById('solFotoPreview').innerHTML =
+      `<img src="${solFotoData}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--line)">`;
+  };
+  reader.readAsDataURL(f);
+}
+
+function quitarFotoSolicitud(){
+  solFotoData = '';
+  document.getElementById('solFoto').value = '';
+  document.getElementById('solFotoNombre').textContent = 'Ninguna foto adjunta';
+  document.getElementById('solFotoQuitar').style.display = 'none';
+  document.getElementById('solFotoPreview').innerHTML = '';
+}
+
 /* El gerente envía una solicitud */
 async function enviarSolicitud(){
   const campana=document.getElementById('solCampana').value.trim();
@@ -3188,6 +3240,8 @@ async function enviarSolicitud(){
     cobertura: document.getElementById('solCobertura').value,
     impresion: document.getElementById('solImpresion').value,
     prioridad: document.getElementById('solPrioridad').value,
+    foto: solFotoData,                              /* foto de referencia opcional */
+    foto_nombre: solFotoData ? (document.getElementById('solFoto').files[0]?.name || 'referencia.jpg') : '',
     estado: 'pendiente',
     fecha: new Date().toISOString()
   };
@@ -3198,6 +3252,7 @@ async function enviarSolicitud(){
     document.getElementById('solDesc').value='';
     document.getElementById('solPlataforma').value='';
     document.getElementById('solFecha').value='';
+    quitarFotoSolicitud();
     const msg=document.getElementById('solMsg');
     msg.style.display='inline';
     setTimeout(()=>msg.style.display='none',4000);
@@ -3245,6 +3300,22 @@ async function renderPendientes(){
 /* Tarjeta de una solicitud — esAdmin decide si muestra el botón Convertir */
 function tarjetaSolicitud(s,esAdmin){
   const conv=s.estado==='convertida';
+  /* Bloque de foto: vista previa + descarga (si la solicitud tiene foto) */
+  const fotoNom = s.foto_nombre || 'referencia.jpg';
+  const fotoBloque = s.foto ? `
+    <div style="margin:10px 0;padding:10px;background:#f7f7fb;border-radius:9px;border:1px solid var(--line)">
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">📷 Foto de referencia</div>
+      <img src="${s.foto}" alt="${esc(fotoNom)}"
+        style="max-width:100%;max-height:260px;border-radius:7px;cursor:pointer;display:block"
+        onclick="window.open('${s.foto}','_blank')"
+        title="Clic para ver en tamaño completo">
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <a href="${s.foto}" download="${esc(fotoNom)}" class="btn btn-sm btn-ghost"
+          style="padding:4px 10px;font-size:12px;text-decoration:none">⬇ Descargar foto</a>
+        <span style="font-size:11px;color:var(--muted)">${esc(fotoNom)}</span>
+      </div>
+    </div>` : '';
+
   return `<div class="sol-card">
     <div class="sol-head">
       <span class="sid">Solicitud #${s.id}</span>
@@ -3261,6 +3332,7 @@ function tarjetaSolicitud(s,esAdmin){
       <div>⚡ Prioridad: <b>${esc(s.prioridad)}</b></div>
     </div>
     <div class="sol-desc">${esc(s.descripcion)}</div>
+    ${fotoBloque}
     <div class="sol-foot">
       <span class="sol-quien">Solicitado por ${esc(s.gerente_nombre)} · ${fmtFechaHora(s.fecha)}</span>
       ${esAdmin && !conv ? `<button class="btn btn-sm" style="margin-left:auto"
@@ -3320,7 +3392,8 @@ async function convertirEnTarea(solId){
         ' del gerente '+(s.gerente_nombre||'')+
         '. Cobertura: '+s.cobertura+'. Impresión: '+s.impresion+'.',
       recursos: s.cobertura==='Sí'?{cobertura:{on:true}}:{},
-      adjuntos:[], metricas:{},
+      adjuntos: s.foto ? [{tipo:'imagen', nombre:(s.foto_nombre||'referencia.jpg'), data:s.foto}] : [],
+      metricas:{},
       _upd:{who:CURRENT.nombre,when:new Date()}
     };
 
