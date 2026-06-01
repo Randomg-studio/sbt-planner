@@ -885,13 +885,10 @@
       </div>
       <div class="field-row">
         <div class="field"><label>Responsable (mi equipo)</label>
-          <select id="mResponsable"><option>Sergio</option><option>Vale</option>
-            <option>Tonny</option><option>Wale</option><option>Randy</option></select>
+          <select id="mResponsable"></select>
         </div>
         <div class="field"><label>Colaborador (gerencia / alto mando)</label>
-          <select id="mColaborador"><option value="">— Ninguno —</option>
-            <option>Gerente General</option><option>Gerente de Programas Sociales</option>
-            <option>Gerencia de Imagen</option><option>Presidencia</option><option>Otro</option></select>
+          <select id="mColaborador"></select>
         </div>
       </div>
       <div class="field-row">
@@ -1392,6 +1389,7 @@ async function doLogin(){
   buildTabs(); buildServiceFilter();
   activeTab=TABS_BY_ROLE[u.rol][0][0];
   await cargarDatos();
+  actualizarSelectsEquipo();   /* lista de responsables al día tras cargar usuarios */
   switchTab(activeTab);
   /* Marcar en línea y mantener el latido cada 60s */
   latido();
@@ -1453,6 +1451,49 @@ function buildServiceFilter(){
   if(mSel){
     mSel.innerHTML=SERVICIOS.map(s=>`<option>${s}</option>`).join('');
   }
+}
+
+/* Llena los selects de Responsable (mi equipo) y Colaborador (gerencia)
+   desde la tabla de usuarios — solo activos. Excluye Lectores y al propio Admin
+   "Randy Ríos" de la lista de equipo. */
+function actualizarSelectsEquipo(){
+  const selResp = document.getElementById('mResponsable');
+  const selCol  = document.getElementById('mColaborador');
+  if(!selResp || !selCol) return;
+
+  /* Recordar selecciones previas para no perderlas */
+  const valResp = selResp.value;
+  const valCol  = selCol.value;
+
+  /* Equipo de contenido: usuarios activos con rol Editor o Community
+     (los que ejecutan tareas en el día a día) */
+  const equipo = USERS
+    .filter(u => u.activo!==false)
+    .filter(u => u.rol==='Editor' || u.rol==='Community' || u.rol==='Admin')
+    .map(u => (u.nombre||'').replace(' (Admin)','').trim())
+    .filter(Boolean);
+  const equipoUnico = [...new Set(equipo)].sort();
+
+  selResp.innerHTML = '<option value="">— Sin asignar —</option>' +
+    equipoUnico.map(n => `<option>${esc(n)}</option>`).join('');
+
+  /* Colaboradores: Gerentes activos + opciones fijas de alto mando */
+  const gerentes = USERS
+    .filter(u => u.activo!==false && u.rol==='Gerente')
+    .map(u => (u.nombre||'').trim())
+    .filter(Boolean);
+  const gerentesUnicos = [...new Set(gerentes)].sort();
+
+  selCol.innerHTML = '<option value="">— Ninguno —</option>' +
+    gerentesUnicos.map(n => `<option>${esc(n)}</option>`).join('') +
+    '<option>Gerente General</option>' +
+    '<option>Gerencia de Imagen</option>' +
+    '<option>Presidencia</option>' +
+    '<option>Otro</option>';
+
+  /* Restaurar selección si todavía existe en la lista nueva */
+  if(valResp && [...selResp.options].some(o=>o.value===valResp)) selResp.value=valResp;
+  if(valCol  && [...selCol.options ].some(o=>o.value===valCol )) selCol.value =valCol;
 }
 function setView(m){
   viewMode=m;
@@ -1571,11 +1612,21 @@ function openNew(){
 }
 function fillModal(t,isNew){
   buildResGrid();
+  actualizarSelectsEquipo();   /* sincronizar lista de responsables y colaboradores con usuarios activos */
   document.getElementById('mTitle').textContent=isNew?'Nueva tarea':'Tarea '+t.id;
   document.getElementById('mId').value=t.id;
   document.getElementById('mEstado').value=t.estado||'Sin estado';
   document.getElementById('mObjetivo').innerHTML=t.objetivo||'';
-  document.getElementById('mResponsable').value=t.responsable||'Sergio';
+  /* Si el responsable de la tarea ya no está en la lista (eliminado/desactivado),
+     se agrega temporalmente como opción especial para no perder el dato histórico */
+  const selResp=document.getElementById('mResponsable');
+  if(t.responsable && ![...selResp.options].some(o=>o.value===t.responsable)){
+    const opt=document.createElement('option');
+    opt.value=t.responsable;
+    opt.textContent=t.responsable+' (inactivo)';
+    selResp.appendChild(opt);
+  }
+  document.getElementById('mResponsable').value=t.responsable||'';
   document.getElementById('mColaborador').value=t.colaborador||'';
   document.getElementById('mServicio').value=t.servicio||'SBT';
   document.getElementById('mPrioridad').value=t.prioridad||'Media';
