@@ -665,6 +665,19 @@
         <button class="tab"        id="pSem"   onclick="setPeriodo('sem')"  >Esta semana</button>
         <button class="tab"        id="pMes"   onclick="setPeriodo('mes')"  >Este mes</button>
         <button class="tab"        id="pAnterior" onclick="setPeriodo('anterior')">Mes anterior</button>
+        <button class="tab"        id="pResp"  onclick="setPeriodo('resp')">Por responsable</button>
+      </div>
+
+      <!-- Bloque que solo aparece en modo "Por responsable" -->
+      <div id="respWrap" style="display:none;margin-bottom:18px">
+        <div class="panel">
+          <h2>Avance individual por miembro</h2>
+          <p>Elige a un miembro del equipo para ver su carga de trabajo, tareas pendientes y porcentaje de avance.</p>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+            <label style="margin:0;font-weight:600">Miembro:</label>
+            <select id="respSel" onchange="renderResponsable()" style="min-width:180px"></select>
+          </div>
+        </div>
       </div>
       <!-- Stats dinámicas -->
       <div class="stats" id="ctrlStats"></div>
@@ -1969,6 +1982,9 @@ async function guardarTodosUsuarios(){
     }
   }
   renderUsers();
+  /* Sincronizar las listas que dependen de USERS */
+  actualizarSelectsEquipo();
+  if(ctrlPeriodo==='resp'){ prepararSelectorResp(); renderResponsable(); }
 }
 
 /* Desactivar / reactivar un usuario (sigue existiendo, pero no puede entrar) */
@@ -1982,6 +1998,9 @@ async function toggleActivoUsuario(i){
   await saveUserToDB(USERS[i], i);
   USERS[i]._orig = USERS[i].usuario;
   renderUsers();
+  /* Sincronizar listas dependientes */
+  actualizarSelectsEquipo();
+  if(ctrlPeriodo==='resp'){ prepararSelectorResp(); renderResponsable(); }
 }
 
 /* Eliminar definitivamente un usuario */
@@ -1996,6 +2015,9 @@ async function eliminarUsuario(i){
   await deleteUserFromDB(u);
   USERS.splice(i,1);
   renderUsers();
+  /* Sincronizar listas dependientes */
+  actualizarSelectsEquipo();
+  if(ctrlPeriodo==='resp'){ prepararSelectorResp(); renderResponsable(); }
 }
 
 /* Ojito para mostrar/ocultar contraseña */
@@ -2186,11 +2208,173 @@ let calMonth = new Date().getMonth();
 
 function setPeriodo(p){
   ctrlPeriodo = p;
-  ['all','sem','mes','anterior'].forEach(id=>{
+  ['all','sem','mes','anterior','resp'].forEach(id=>{
     const b = document.getElementById('p'+id.charAt(0).toUpperCase()+id.slice(1));
     if(b) b.classList.toggle('active', id===p);
   });
-  renderControl();
+  /* Mostrar/ocultar el bloque del selector de responsable */
+  const respWrap = document.getElementById('respWrap');
+  if(respWrap) respWrap.style.display = (p==='resp') ? 'block' : 'none';
+  /* Si entra a modo responsable, preparar el selector y renderizar al primero */
+  if(p==='resp'){
+    prepararSelectorResp();
+    renderResponsable();
+  } else {
+    renderControl();
+  }
+}
+
+/* Llena el selector de responsables con los activos (excepto Gerentes) */
+function prepararSelectorResp(){
+  const sel = document.getElementById('respSel');
+  if(!sel) return;
+  const valPrev = sel.value;
+  const equipo = USERS
+    .filter(u => u.activo!==false)
+    .filter(u => u.rol!=='Gerente')
+    .map(u => (u.nombre||'').replace(' (Admin)','').trim())
+    .filter(Boolean);
+  const equipoUnico = [...new Set(equipo)].sort();
+  sel.innerHTML = equipoUnico.map(n => `<option>${esc(n)}</option>`).join('');
+  /* Restaurar selección previa si todavía existe */
+  if(valPrev && [...sel.options].some(o=>o.value===valPrev)) sel.value = valPrev;
+}
+
+function renderResponsable(){
+  const sel = document.getElementById('respSel');
+  if(!sel || !sel.value) return;
+  const persona = sel.value;
+  const mias = TASKS.filter(t => (t.responsable||'').trim().toLowerCase()===persona.toLowerCase());
+
+  const total = mias.length;
+  const enProceso = mias.filter(t=>t.estado==='En proceso').length;
+  const disenado  = mias.filter(t=>t.estado==='Diseñado').length;
+  const programado= mias.filter(t=>t.estado==='Programado').length;
+  const publicado = mias.filter(t=>t.estado==='Publicado/Finalizado').length;
+  const noRealiz  = mias.filter(t=>t.estado==='No realizado').length;
+  const pendientes = enProceso + disenado + programado;
+  const pct = total ? Math.round(publicado/total*100) : 0;
+
+  /* Stats principales — reemplaza los stats normales */
+  document.getElementById('ctrlStats').innerHTML=
+    [['Tareas asignadas', total, 'var(--moss)'],
+     ['Pendientes', pendientes, 'var(--st-proceso)'],
+     ['Completadas', publicado, 'var(--st-publicado)'],
+     ['Avance', pct+'%', 'var(--st-finalizado)']]
+    .map(([l,n,c])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div>
+      <div class="bar" style="background:${c}"></div></div>`).join('');
+
+  /* Barras: tareas por estado — reemplaza el gráfico de "carga por responsable" */
+  const estados = [
+    ['En proceso', enProceso, 'var(--st-proceso)'],
+    ['Diseñado', disenado, 'var(--st-finalizado)'],
+    ['Programado', programado, 'var(--st-programado)'],
+    ['Publicado/Finalizado', publicado, 'var(--st-publicado)'],
+    ['No realizado', noRealiz, 'var(--st-norealizado)']
+  ];
+  const maxE = Math.max(...estados.map(e=>e[1]), 1);
+  document.getElementById('chartResp').innerHTML = total
+    ? estados.filter(e=>e[1]>0).map(([l,n,c])=>`<div class="barrow">
+        <span class="bl">${l}</span>
+        <div class="bartrack"><div class="barfill" style="width:${n/maxE*100}%;background:${c}">${n}</div></div>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px">Esta persona no tiene tareas asignadas.</div>';
+
+  /* Cambiar el título del gráfico */
+  const h2Resp = document.querySelector('#chartResp')?.parentElement?.querySelector('h2');
+  if(h2Resp) h2Resp.textContent = 'Tareas de '+persona+' por estado';
+
+  /* Donut: distribución por estado (igual que renderControl pero para esta persona) */
+  const stc = {'En proceso':enProceso, 'Diseñado':disenado, 'Programado':programado,
+    'Publicado/Finalizado':publicado, 'No realizado':noRealiz};
+  const segs = COLS.map(c=>({label:c.label, n:stc[c.key]||0, color:getCss(c.color)}));
+  drawDonut(segs);
+  document.getElementById('donutLegend').innerHTML = segs.filter(s=>s.n>0).map(s=>
+    `<div class="dl-row"><span class="dl-dot" style="background:${s.color}"></span>
+     ${s.label} — <b>${s.n}</b></div>`).join('') ||
+    '<div style="color:var(--muted);font-size:13px">Sin datos</div>';
+
+  /* Barras por servicio para esta persona */
+  const byServ = {};
+  mias.forEach(t=>{const s=t.servicio||'Sin definir'; byServ[s]=(byServ[s]||0)+1;});
+  const maxS = Math.max(...Object.values(byServ), 1);
+  document.getElementById('chartServ').innerHTML = Object.keys(byServ).length
+    ? Object.entries(byServ).sort((a,b)=>b[1]-a[1]).map(([s,n])=>`<div class="barrow">
+        <span class="bl">${esc(s)}</span>
+        <div class="bartrack"><div class="barfill" style="width:${n/maxS*100}%;background:var(--moss)">${n}</div></div>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px">Sin datos.</div>';
+
+  /* Calendario para esta persona — filtramos por su nombre temporalmente */
+  renderCalendarioPersona(persona);
+
+  /* Lista de pendientes en lugar de actividad reciente */
+  const pendList = mias
+    .filter(t=>t.estado==='En proceso'||t.estado==='Diseñado'||t.estado==='Programado')
+    .sort((a,b)=>(a.fecha_inicio||'').localeCompare(b.fecha_inicio||''));
+  document.getElementById('activityLog').innerHTML = pendList.length
+    ? pendList.map(t=>`<div class="act-row" style="cursor:pointer" onclick="openTask('${t.id}')">
+        <span class="act-dot" style="background:${ST_COLOR[t.estado]||'#999'}"></span>
+        <span><b>${t.id}</b> — ${esc(plano(t.objetivo).slice(0,55))}${plano(t.objetivo).length>55?'…':''}
+          <span style="font-size:11px;color:var(--muted);margin-left:6px">${esc(t.estado)}</span></span>
+        <span class="when">${t.fecha_inicio?fmtDate(t.fecha_inicio):''}</span></div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px;padding:8px 0">'+
+      (total?'Sin tareas pendientes. ¡Está al día!':'No hay tareas asignadas.')+'</div>';
+  /* Cambiar título de la actividad */
+  const actHead = document.querySelector('#activityLog')?.parentElement?.querySelector('h2');
+  if(actHead) actHead.textContent = 'Tareas pendientes de '+persona;
+}
+
+/* Calendario filtrado por una persona */
+function renderCalendarioPersona(persona){
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DIAS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  document.getElementById('calLabel').textContent=MESES[calMonth]+' '+calYear;
+
+  const grid=document.getElementById('calGrid');
+  if(!grid) return;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const first=new Date(calYear,calMonth,1);
+  let dow=first.getDay(); if(dow===0)dow=7;
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const daysInPrev=new Date(calYear,calMonth,0).getDate();
+
+  /* Solo tareas de la persona */
+  const byDay={};
+  TASKS.filter(t=>(t.responsable||'').trim().toLowerCase()===persona.toLowerCase())
+    .forEach(t=>{
+      if(!t.fecha_inicio) return;
+      const d=new Date(t.fecha_inicio+'T00:00:00');
+      if(d.getFullYear()===calYear && d.getMonth()===calMonth){
+        const k=d.getDate();
+        if(!byDay[k]) byDay[k]=[];
+        byDay[k].push(t);
+      }
+    });
+
+  let html='';
+  DIAS.forEach(d=>{ html+=`<div class="cal-dow">${d}</div>`; });
+  for(let i=dow-1;i>0;i--){
+    html+=`<div class="cal-day other-month"><div class="cal-dn">${daysInPrev-i+1}</div></div>`;
+  }
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=(new Date(calYear,calMonth,d)).getTime()===today.getTime();
+    const events=(byDay[d]||[]).slice(0,3);
+    const more=(byDay[d]||[]).length-3;
+    html+=`<div class="cal-day${isToday?' today':''}">
+      <div class="cal-dn" style="color:${isToday?'var(--gold)':'var(--muted)'}">${d}${isToday?' ●':''}</div>
+      ${events.map(t=>`<div class="cal-event" style="background:${ST_COLOR[t.estado]||'#888'}"
+        onclick="openTask('${t.id}')" title="${esc(plano(t.objetivo))}">${esc(t.id)}</div>`).join('')}
+      ${more>0?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">+${more} más</div>`:''}
+    </div>`;
+  }
+  const total=dow-1+daysInMonth;
+  const rem=total%7===0?0:7-(total%7);
+  for(let d=1;d<=rem;d++){
+    html+=`<div class="cal-day other-month"><div class="cal-dn">${d}</div></div>`;
+  }
+  grid.innerHTML=html;
 }
 
 function filtrarPorPeriodo(list){
