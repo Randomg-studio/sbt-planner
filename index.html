@@ -1470,11 +1470,11 @@ function actualizarSelectsEquipo(){
   const valResp = selResp.value;
   const valCol  = selCol.value;
 
-  /* Equipo de contenido: usuarios activos con rol Editor o Community
-     (los que ejecutan tareas en el día a día) */
+  /* Equipo de contenido: TODOS los usuarios activos excepto Gerentes
+     (los Gerentes van en Colaborador). Incluye Admin, Editor, Community, Lector. */
   const equipo = USERS
     .filter(u => u.activo!==false)
-    .filter(u => u.rol==='Editor' || u.rol==='Community' || u.rol==='Admin')
+    .filter(u => u.rol!=='Gerente')
     .map(u => (u.nombre||'').replace(' (Admin)','').trim())
     .filter(Boolean);
   const equipoUnico = [...new Set(equipo)].sort();
