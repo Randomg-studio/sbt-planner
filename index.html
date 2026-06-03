@@ -17,7 +17,14 @@
     --st-publicado:#3a6ea5; --st-programado:#8a6cb0; --st-sin:#9a9aa6; --st-norealizado:#b04a3a;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  /* Re-habilitar selección donde es necesaria para trabajar (escribir, copiar texto de tareas) */
+  input, textarea, [contenteditable="true"], .msg, .sol-desc, .rte-area,
+  .copybox, #activityLog, #registroLista, .conv-sub, .cal-event{
+    -webkit-user-select:text;-moz-user-select:text;user-select:text;
+  }
+
   body{font-family:'Spline Sans',sans-serif;background:var(--paper);color:var(--ink);
+    -webkit-user-select:none;-moz-user-select:none;user-select:none;
     -webkit-font-smoothing:antialiased;min-height:100vh}
   h1,h2,h3,h4{font-family:'Fraunces',serif;font-weight:600;letter-spacing:-.01em}
   button{font-family:inherit;cursor:pointer;border:none}
@@ -1005,6 +1012,32 @@
    Proyecto: jrsymdgbmwykwvegcmuh.supabase.co
    Sincronización en tiempo real activa
    ===================================================================== */
+
+/* ---------- BLOQUEOS BÁSICOS DE DISUASIÓN (NIVEL 1) ----------
+   Detienen al usuario casual. NO son protección real contra alguien técnico.
+   Si necesitas levantarlos para desarrollo, comenta este bloque. */
+(function(){
+  /* Bloquear clic derecho */
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* Bloquear teclas comunes para abrir DevTools y ver código */
+  document.addEventListener('keydown', e => {
+    const k = (e.key||'').toLowerCase();
+    /* F12 */
+    if(e.key==='F12') { e.preventDefault(); return false; }
+    /* Ctrl+Shift+I / J / C  (DevTools) */
+    if(e.ctrlKey && e.shiftKey && (k==='i'||k==='j'||k==='c')){ e.preventDefault(); return false; }
+    /* Ctrl+U  (ver fuente) */
+    if(e.ctrlKey && k==='u'){ e.preventDefault(); return false; }
+    /* Ctrl+S  (guardar página) */
+    if(e.ctrlKey && k==='s'){ e.preventDefault(); return false; }
+  });
+
+  /* Evitar arrastrar imágenes para guardarlas */
+  document.addEventListener('dragstart', e => {
+    if(e.target && e.target.tagName==='IMG') e.preventDefault();
+  });
+})();
 
 const SB_URL = "https://jrsymdgbmwykwvegcmuh.supabase.co";
 const SB_KEY = "sb_publishable_T_yVBWlCnJ5OaqVUJoB53Q_nODbpCMk";
