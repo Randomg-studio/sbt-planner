@@ -1079,10 +1079,10 @@ async function cargarDatos() {
   mostrarCarga(true);
   try {
     /* Usuarios */
-    const us = await sbFetch('usuarios','GET',null,'?select=*&order=id');
+    const us = await sbFetch('usuarios','GET',null,'?select=id,usuario,nombre,email,cargo,rol,activo,ultima_actividad&order=id');
     if (us && us.length > 0) {
       USERS = us.map(u=>({id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',
-        nombre:u.nombre||'',email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',
+        nombre:u.nombre||'',email:u.email||'',pass:'',cargo:u.cargo||'',
         rol:u.rol||'Lector',activo:(u.activo!==false),
         ultima_actividad:u.ultima_actividad}));
     } else {
@@ -1090,7 +1090,7 @@ async function cargarDatos() {
         try { await sbFetch('usuarios','POST',{usuario:u.usuario,nombre:u.nombre,
           email:u.email,pass:u.pass,cargo:u.cargo,rol:u.rol,activo:true}); } catch(e) {}
       }
-      const us2 = await sbFetch('usuarios','GET',null,'?select=*&order=id');
+      const us2 = await sbFetch('usuarios','GET',null,'?select=id,usuario,nombre,email,cargo,rol,activo,ultima_actividad&order=id');
       if (us2 && us2.length) USERS = us2.map(u=>
         ({id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',nombre:u.nombre||'',
           email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',rol:u.rol||'Lector',
@@ -1246,8 +1246,9 @@ async function saveMetricToDB(taskId, metricas) {
 /* ---- GUARDAR USUARIO ---- */
 async function saveUserToDB(u, idx) {
   try {
+    /* Payload base SIN pass — la app no puede leer/modificar contraseñas existentes */
     const payload = {usuario:u.usuario,nombre:u.nombre,email:u.email,
-      pass:u.pass,cargo:u.cargo,rol:u.rol,activo:(u.activo!==false)};
+      cargo:u.cargo,rol:u.rol,activo:(u.activo!==false)};
     /* Estrategia anti-duplicados:
        1) Si el usuario tiene id de Supabase, actualizar por id (clave estable).
        2) Si no, buscar por su usuario ORIGINAL (_orig) por si lo renombró.
@@ -1263,7 +1264,9 @@ async function saveUserToDB(u, idx) {
       await sbFetch('usuarios','PATCH',payload,'?id=eq.'+existe[0].id);
       if (idx!=null && USERS[idx]) USERS[idx].id = existe[0].id;
     } else {
-      const res = await sbFetch('usuarios','POST',payload);
+      /* Usuario nuevo: SÍ se manda pass (al crear es necesario) */
+      const payloadNuevo = {...payload, pass: u.pass || 'equipo123'};
+      const res = await sbFetch('usuarios','POST',payloadNuevo);
       if (res && res[0] && idx!=null && USERS[idx]) USERS[idx].id = res[0].id;
     }
   } catch(err) { console.error('Error usuario:', err); }
@@ -1427,7 +1430,7 @@ async function doLogin(){
     } else if(r.status===404){
       /* La función RPC aún no existe en Supabase: usar método legacy temporalmente */
       console.warn('Función login_check no creada aún en Supabase. Usando método legacy.');
-      const todos = await sbFetch('usuarios','GET',null,'?select=*');
+      const todos = await sbFetch('usuarios','GET',null,'?select=id,usuario,nombre,email,cargo,rol,activo,ultima_actividad');
       if(todos && todos.length>0){
         u = todos.find(x=>{
           const usuarioOk = (x.usuario||'').toLowerCase().trim()===id ||
@@ -2829,9 +2832,9 @@ function actualizarBarraInput(){
 
 async function refrescarUsuariosChat(){
   try{
-    const us=await sbFetch('usuarios','GET',null,'?select=*');
+    const us=await sbFetch('usuarios','GET',null,'?select=id,usuario,nombre,email,cargo,rol,activo,ultima_actividad');
     if(us) USERS=us.map(u=>({id:u.id,usuario:u.usuario||'',_orig:u.usuario||'',
-      nombre:u.nombre||'',email:u.email||'',pass:u.pass||'',cargo:u.cargo||'',
+      nombre:u.nombre||'',email:u.email||'',pass:'',cargo:u.cargo||'',
       rol:u.rol||'Lector',activo:(u.activo!==false),
       ultima_actividad:u.ultima_actividad}));
   }catch(e){}
