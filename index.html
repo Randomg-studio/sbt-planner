@@ -1975,11 +1975,9 @@ function renderUsers(){
     <td><input id="un-${i}"  value="${esc(u.nombre)}"   style="width:105px" placeholder="Nombre"></td>
     <td><input id="uu-${i}"  value="${esc(u.usuario||'')}" style="width:90px" placeholder="usuario"></td>
     <td>
-      <div style="position:relative;display:flex;align-items:center">
-        <input id="up-${i}" type="password" value="${esc(u.pass)}" style="width:110px;padding-right:28px" placeholder="contraseña">
-        <button type="button" onclick="toggleOjo('up-${i}',this)"
-          style="position:absolute;right:5px;background:none;color:var(--muted);font-size:14px;padding:0;line-height:1;border:none;cursor:pointer">👁</button>
-      </div>
+      <button class="btn btn-sm btn-ghost" onclick="abrirCambioPass(${i})"
+        title="Cambiar contraseña (requiere tu clave de Admin)"
+        style="padding:5px 9px;font-size:12px">🔑 Cambiar</button>
     </td>
     <td><input id="ue-${i}"  value="${esc(u.email)}"   style="width:165px" placeholder="correo@gmail.com"></td>
     <td><select id="uc-${i}">
@@ -2003,6 +2001,49 @@ function renderUsers(){
   }).join('');
 }
 
+/* ---- Cambiar contraseña de un usuario (solo Admin) ---- */
+async function abrirCambioPass(i){
+  const u = USERS[i];
+  if(!u) return;
+  const nueva = prompt(`Nueva contraseña para "${u.nombre}":\n\n(mínimo 6 caracteres)`);
+  if(nueva===null) return;
+  if(!nueva || nueva.length < 6){
+    alert('La contraseña debe tener al menos 6 caracteres.');
+    return;
+  }
+  const miClave = prompt(`Para confirmar este cambio, escribe TU contraseña de Admin:`);
+  if(!miClave) return;
+  try{
+    const r = await fetch(SB_URL+'/rest/v1/rpc/admin_reset_pass', {
+      method:'POST',
+      headers:{
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer '+SB_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_admin_user: CURRENT.usuario,
+        p_admin_pass: miClave,
+        p_target_user: u.usuario,
+        p_new_pass: nueva
+      })
+    });
+    const txt = await r.text();
+    if(!r.ok){
+      alert('No se pudo cambiar la contraseña:\n'+txt);
+      return;
+    }
+    const data = JSON.parse(txt);
+    if(data===true){
+      alert('✓ Contraseña cambiada para '+u.nombre+'.\n\nAvísale al usuario para que entre con la nueva contraseña.');
+    } else {
+      alert('No se pudo cambiar la contraseña: tu clave de Admin es incorrecta o no tienes permisos.');
+    }
+  }catch(err){
+    alert('Error al cambiar contraseña: '+err.message);
+  }
+}
+
 /* Lee los valores de una fila y devuelve el objeto usuario actualizado */
 function leerFilaUsuario(i){
   const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
@@ -2010,7 +2051,7 @@ function leerFilaUsuario(i){
     ...USERS[i],
     nombre:  g('un-'+i).trim(),
     usuario: g('uu-'+i).trim().toLowerCase(),
-    pass:    g('up-'+i).trim() || USERS[i].pass,
+    /* pass NO se toca aquí — se cambia por el botón Cambiar contraseña */
     email:   g('ue-'+i).trim(),
     cargo:   g('uc-'+i),
     rol:     g('ur-'+i)
