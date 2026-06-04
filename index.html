@@ -1404,38 +1404,58 @@ async function doLogin(){
   let u=null;
   let fuenteDatos='supabase';
 
-  /* Verificar contra Supabase */
+  /* Verificar contra Supabase usando función segura del servidor (no expone contraseñas) */
   try{
-    const todos = await sbFetch('usuarios','GET',null,'?select=*');
-    if(todos && todos.length>0){
-      u = todos.find(x=>{
-        const usuarioOk = (x.usuario||'').toLowerCase().trim()===id ||
-                          (x.email||'').toLowerCase().trim()===id;
-        const passOk    = (x.pass||'').trim()===pw;
-        return usuarioOk && passOk;
-      });
-      if(u){
-        /* activo: null o true = activo, false = desactivado */
-        u={id:u.id, usuario:u.usuario||'', _orig:u.usuario||'',
-           nombre:u.nombre||'', email:u.email||'',
-           pass:u.pass||'', cargo:u.cargo||'', rol:u.rol||'Lector',
-           activo: u.activo!==false};  /* null y true → activo */
+    const r = await fetch(SB_URL+'/rest/v1/rpc/login_check', {
+      method:'POST',
+      headers:{
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer '+SB_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({p_id: id, p_pass: pw})
+    });
+    if(r.ok){
+      const data = await r.json();
+      if(data && data.length>0){
+        const x = data[0];
+        u={id:x.id, usuario:x.usuario||'', _orig:x.usuario||'',
+           nombre:x.nombre||'', email:x.email||'',
+           pass:'', cargo:x.cargo||'', rol:x.rol||'Lector',
+           activo: x.activo!==false};
+      }
+    } else if(r.status===404){
+      /* La función RPC aún no existe en Supabase: usar método legacy temporalmente */
+      console.warn('Función login_check no creada aún en Supabase. Usando método legacy.');
+      const todos = await sbFetch('usuarios','GET',null,'?select=*');
+      if(todos && todos.length>0){
+        u = todos.find(x=>{
+          const usuarioOk = (x.usuario||'').toLowerCase().trim()===id ||
+                            (x.email||'').toLowerCase().trim()===id;
+          const passOk    = (x.pass||'').trim()===pw;
+          return usuarioOk && passOk;
+        });
+        if(u){
+          u={id:u.id, usuario:u.usuario||'', _orig:u.usuario||'',
+             nombre:u.nombre||'', email:u.email||'',
+             pass:'', cargo:u.cargo||'', rol:u.rol||'Lector',
+             activo: u.activo!==false};
+        }
       }
     } else {
       fuenteDatos='local';
     }
   }catch(e){
-    /* Sin conexión: usar lista local */
     fuenteDatos='local';
     console.warn('Sin conexión a Supabase, usando datos locales:', e.message);
   }
 
   /* Fallback a datos locales si Supabase no respondió */
-  if(fuenteDatos==='local'){
+  if(fuenteDatos==='local' && !u){
     const uLocal = USERS_DEFAULT.find(x=>
       ((x.usuario||'').toLowerCase()===id||(x.email||'').toLowerCase()===id) &&
       (x.pass||'')===pw);
-    if(uLocal) u={...uLocal, activo:true};
+    if(uLocal) u={...uLocal, pass:'', activo:true};
   }
 
   if(!u){
