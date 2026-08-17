@@ -1,89 +1,199 @@
+<script>
 async function doLogin(){
-  const id=document.getElementById('loginEmail').value.trim().toLowerCase();
-  const pw=document.getElementById('loginPass').value;   /* sin trim: la clave puede llevar espacios */
-  const errEl=document.getElementById('loginErr');
-  errEl.style.display='none';
-  if(!id||!pw){
-    errEl.textContent='Completa tu usuario y contraseña.';
-    errEl.style.display='block'; return;
+  const id = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pw = document.getElementById('loginPass').value; /* sin trim: la clave puede llevar espacios */
+  const errEl = document.getElementById('loginErr');
+
+  errEl.style.display = 'none';
+
+  if(!id || !pw){
+    errEl.textContent = 'Completa tu usuario y contraseña.';
+    errEl.style.display = 'block';
+    return;
   }
-  let u=null;
-  /* ---- PASO 1: llave maestra local (siempre funciona) ---- */
-  if( (id===ADMIN_MAESTRO.usuario.toLowerCase() ||
-       id===(ADMIN_MAESTRO.email||'').toLowerCase()) && pw===ADMIN_MAESTRO.pass ){
-    u={...ADMIN_MAESTRO, _orig:ADMIN_MAESTRO.usuario, activo:true};
+
+  let u = null;
+
+  /* ---- PASO 1: llave maestra local ---- */
+  if(
+    (
+      id === ADMIN_MAESTRO.usuario.toLowerCase() ||
+      id === (ADMIN_MAESTRO.email || '').toLowerCase()
+    ) &&
+    pw === ADMIN_MAESTRO.pass
+  ){
+    u = {
+      ...ADMIN_MAESTRO,
+      _orig: ADMIN_MAESTRO.usuario,
+      activo: true
+    };
   }
+
   /* ---- PASO 2: Supabase con función segura login_check ---- */
   if(!u){
     try{
-      const r = await fetch(SB_URL+'/rest/v1/rpc/login_check', {
-        method:'POST',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
-        body: JSON.stringify({p_id:id, p_pass:pw})
-      });
+      const r = await fetch(
+        SB_URL + '/rest/v1/rpc/login_check',
+        {
+          method: 'POST',
+          headers: {
+            'apikey': SB_KEY,
+            'Authorization': 'Bearer ' + SB_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            p_id: id,
+            p_pass: pw
+          })
+        }
+      );
+
       if(r.ok){
         const data = await r.json();
-        if(data && data.length>0){
-          const x=data[0];
-          u={id:x.id, usuario:x.usuario||'', _orig:x.usuario||'', nombre:x.nombre||'',
-             email:x.email||'', pass:'', cargo:x.cargo||'', rol:x.rol||'Lector',
-             activo:x.activo!==false};
+
+        if(data && data.length > 0){
+          const x = data[0];
+
+          u = {
+            id: x.id,
+            usuario: x.usuario || '',
+            _orig: x.usuario || '',
+            nombre: x.nombre || '',
+            email: x.email || '',
+            pass: '',
+            cargo: x.cargo || '',
+            rol: x.rol || 'Lector',
+            activo: x.activo !== false
+          };
         }
-      } else if(r.status===404){
-        /* RPC aún no creada: método legacy — AHORA sí pide el campo pass */
-        console.warn('login_check no existe en Supabase. Usando método legacy.');
-        const todos = await sbFetch('usuarios','GET',null,
-          '?select=id,usuario,nombre,email,pass,cargo,rol,activo,ultima_actividad');
-        if(todos && todos.length>0){
-          const m = todos.find(x=>{
-            const okUser = (x.usuario||'').toLowerCase().trim()===id ||
-                           (x.email||'').toLowerCase().trim()===id;
-            return okUser && (x.pass||'')===pw;
+
+      }else if(r.status === 404){
+
+        /* RPC aún no creada: método legacy */
+        console.warn(
+          'login_check no existe en Supabase. Usando método legacy.'
+        );
+
+        const todos = await sbFetch(
+          'usuarios',
+          'GET',
+          null,
+          '?select=id,usuario,nombre,email,pass,cargo,rol,activo,ultima_actividad'
+        );
+
+        if(todos && todos.length > 0){
+
+          const m = todos.find(x => {
+
+            const okUser =
+              (x.usuario || '').toLowerCase().trim() === id ||
+              (x.email || '').toLowerCase().trim() === id;
+
+            return okUser && (x.pass || '') === pw;
           });
+
           if(m){
-            u={id:m.id, usuario:m.usuario||'', _orig:m.usuario||'', nombre:m.nombre||'',
-               email:m.email||'', pass:'', cargo:m.cargo||'', rol:m.rol||'Lector',
-               activo:m.activo!==false};
+            u = {
+              id: m.id,
+              usuario: m.usuario || '',
+              _orig: m.usuario || '',
+              nombre: m.nombre || '',
+              email: m.email || '',
+              pass: '',
+              cargo: m.cargo || '',
+              rol: m.rol || 'Lector',
+              activo: m.activo !== false
+            };
           }
         }
       }
+
     }catch(e){
-      console.warn('Sin conexión a Supabase:', e.message);
+      console.warn(
+        'Sin conexión a Supabase:',
+        e.message
+      );
     }
   }
-  /* ---- PASO 3: fallback local — ahora SIEMPRE se intenta si no hubo coincidencia ---- */
+
+  /* ---- PASO 3: fallback local ---- */
   if(!u){
-    const uLocal = USERS_DEFAULT.find(x=>
-      ((x.usuario||'').toLowerCase()===id || (x.email||'').toLowerCase()===id) &&
-      (x.pass||'')===pw);
-    if(uLocal) u={...uLocal, _orig:uLocal.usuario, pass:'', activo:true};
+
+    const uLocal = USERS_DEFAULT.find(x =>
+      (
+        (x.usuario || '').toLowerCase() === id ||
+        (x.email || '').toLowerCase() === id
+      ) &&
+      (x.pass || '') === pw
+    );
+
+    if(uLocal){
+      u = {
+        ...uLocal,
+        _orig: uLocal.usuario,
+        pass: '',
+        activo: true
+      };
+    }
   }
+
+  /* ---- Validación de usuario ---- */
   if(!u){
-    errEl.textContent='Usuario o contraseña incorrectos. Verifica con el administrador.';
-    errEl.style.display='block'; return;
+    errEl.textContent =
+      'Usuario o contraseña incorrectos. Verifica con el administrador.';
+    errEl.style.display = 'block';
+    return;
   }
-  if(u.activo===false){
-    errEl.textContent='Tu cuenta está desactivada. Contacta al administrador.';
-    errEl.style.display='block'; return;
+
+  if(u.activo === false){
+    errEl.textContent =
+      'Tu cuenta está desactivada. Contacta al administrador.';
+    errEl.style.display = 'block';
+    return;
   }
-  CURRENT=u;
-  document.getElementById('login').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('whoName').textContent=u.nombre;
-  const rt=document.getElementById('whoRole');
-  rt.textContent=u.rol; rt.className='role-tag role-'+u.rol;
-  document.getElementById('btnNew').style.display=(u.rol==='Lector'||u.rol==='Community'||u.rol==='Gerente')?'none':'';
-  buildTabs(); buildServiceFilter();
-  activeTab=TABS_BY_ROLE[u.rol][0][0];
+
+  /* ---- Iniciar sesión ---- */
+  CURRENT = u;
+
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  document.getElementById('whoName').textContent = u.nombre;
+
+  const rt = document.getElementById('whoRole');
+
+  rt.textContent = u.rol;
+  rt.className = 'role-tag role-' + u.rol;
+
+  document.getElementById('btnNew').style.display =
+    (
+      u.rol === 'Lector' ||
+      u.rol === 'Community' ||
+      u.rol === 'Gerente'
+    ) ? 'none' : '';
+
+  buildTabs();
+  buildServiceFilter();
+
+  activeTab = TABS_BY_ROLE[u.rol][0][0];
+
   await cargarDatos();
+
   actualizarSelectsEquipo();
+
   switchTab(activeTab);
+
   latido();
   setInterval(latido, 60000);
+
   actualizarBadgeChat();
   setInterval(actualizarBadgeChat, 15000);
+
   actualizarBadgeEfe();
+
   actualizarBadgePend();
   setInterval(actualizarBadgePend, 30000);
+
   actualizarBadgeMias();
 }
+</script>
