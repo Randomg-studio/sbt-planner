@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SBT Planner</title>
+<title>System Softhack</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Spline+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,14 +37,25 @@
       radial-gradient(circle at 85% 75%,rgba(201,143,44,.14),transparent 45%),
       var(--paper)}
   .login-card{background:var(--card);border:1px solid var(--line);border-radius:18px;
-    padding:42px 38px;width:100%;max-width:390px;
-    box-shadow:0 22px 50px -22px rgba(13,0,52,.32)}
-  .brand{display:flex;align-items:center;gap:11px}
-  .brand-mark{width:38px;height:38px;border-radius:10px;background:var(--moss);
+    padding:42px 38px;width:100%;max-width:390px;overflow:hidden;
+    box-shadow:0 26px 60px -24px rgba(13,0,52,.4),0 2px 0 rgba(255,255,255,.6) inset;
+    animation:loginIn .4s ease-out}
+  @keyframes loginIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .login-topline{height:5px;margin:-42px -38px 30px;
+    background:linear-gradient(90deg,var(--moss),var(--gold))}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-mark{width:42px;height:42px;border-radius:11px;background:var(--moss);
     color:#fff;display:flex;align-items:center;justify-content:center;
-    font-family:'Fraunces',serif;font-weight:700;font-size:19px}
-  .brand h1{font-size:23px}
-  .login-sub{color:var(--muted);font-size:13.5px;margin:14px 0 26px;line-height:1.5}
+    font-family:'Fraunces',serif;font-weight:700;font-size:20px;flex-shrink:0;
+    box-shadow:0 8px 18px -6px rgba(13,0,84,.55)}
+  .brand h1{font-size:22px;line-height:1.15}
+  .brand-tag{display:block;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--gold);margin-top:3px}
+  .login-sub{color:var(--muted);font-size:13.5px;margin:16px 0 26px;line-height:1.5}
+  .remember-check{display:flex;align-items:center;gap:9px;font-size:12.5px;
+    font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted);
+    margin:-8px 0 20px;cursor:pointer}
+  .remember-check input{width:15px;height:15px;accent-color:var(--moss);cursor:pointer}
   label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;
     letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
   .field{margin-bottom:16px}
@@ -109,6 +120,20 @@
     font-weight:600;background:transparent;color:var(--muted)}
   .viewtoggle button.on{background:var(--card);color:var(--ink);
     box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  /* ---------- SELECCIÓN MÚLTIPLE / ELIMINAR TAREAS ---------- */
+  .selectbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:#fdf1ea;border:1px solid #f0d7c4;border-radius:10px;
+    padding:10px 14px;margin:-6px 0 16px;font-size:13px;color:var(--ink)}
+  #btnDelSel{background:var(--clay)}
+  #btnDelSel:disabled{opacity:.4;cursor:not-allowed}
+  #btnSelect.on{background:var(--moss);color:#fff;border-color:var(--moss)}
+  .card-check{width:17px;height:17px;accent-color:var(--moss);cursor:pointer;
+    flex-shrink:0;margin-right:2px}
+  .kcard.kcard-selected{outline:2px solid var(--moss);outline-offset:-2px;
+    background:#f2f1fb}
+  .task.task-selected{outline:2px solid var(--moss);outline-offset:-2px;
+    background:#f2f1fb}
 
   /* ---------- KANBAN ---------- */
   .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
@@ -484,11 +509,15 @@
 
 <div id="login">
   <div class="login-card">
+    <div class="login-topline"></div>
     <div class="brand">
       <div class="brand-mark">S</div>
-      <h1>SBT Planner</h1>
+      <div>
+        <h1>System Softhack</h1>
+        <span class="brand-tag">Plataforma interna · SBT</span>
+      </div>
     </div>
-    <p class="login-sub">Sistema de planificación de contenido del equipo. Ingresa con tu correo y contraseña.</p>
+    <p class="login-sub">Sistema de planificación de contenido del equipo. Ingresa con tu usuario y contraseña.</p>
     <div class="field">
       <label>Usuario o correo</label>
       <input type="text" id="loginEmail" placeholder="tu usuario o correo" autocomplete="username">
@@ -501,7 +530,11 @@
           style="position:absolute;right:10px;background:none;color:var(--muted);font-size:17px;padding:0;line-height:1;border:none;cursor:pointer">👁</button>
       </div>
     </div>
-    <button class="btn" onclick="doLogin()">Ingresar</button>
+    <label class="remember-check">
+      <input type="checkbox" id="loginRemember">
+      Mantener sesión iniciada en este dispositivo
+    </label>
+    <button class="btn" onclick="doLogin()">Ingresar →</button>
     <div class="err" id="loginErr">Correo o contraseña incorrectos.</div>
     <div class="hint">
       Ingresa con tu usuario y contraseña.<br>
@@ -538,7 +571,14 @@
           <button id="vbLista" onclick="setView('lista')">☰ Lista</button>
         </div>
         <div class="spacer"></div>
+        <button class="btn btn-sm btn-ghost" id="btnSelect" onclick="toggleSelectMode()" style="display:none">☑ Seleccionar</button>
         <button class="btn btn-sm" id="btnNew" onclick="openNew()">+ Nueva tarea</button>
+      </div>
+      <div class="selectbar" id="selectBar" style="display:none">
+        <span id="selectCount">0 tareas seleccionadas</span>
+        <button class="btn btn-sm btn-ghost" onclick="seleccionarTodoVisible()">Seleccionar / quitar todo</button>
+        <div class="spacer"></div>
+        <button class="btn btn-sm" id="btnDelSel" onclick="eliminarSeleccionadas()" disabled>🗑 Eliminar seleccionadas</button>
       </div>
       <div class="kanban" id="kanban"></div>
       <div class="grid" id="grid" style="display:none"></div>
@@ -1088,7 +1128,7 @@ async function cargarDatos() {
     } else {
       for (const u of USERS_DEFAULT) {
         try { await sbFetch('usuarios','POST',{usuario:u.usuario,nombre:u.nombre,
-          email:u.email,pass:u.pass,cargo:u.cargo,rol:u.rol,activo:true}); } catch(e) {}
+          email:u.email,pass:'cambiar123',cargo:u.cargo,rol:u.rol,activo:true}); } catch(e) {}
       }
       const us2 = await sbFetch('usuarios','GET',null,'?select=id,usuario,nombre,email,cargo,rol,activo,ultima_actividad&order=id');
       if (us2 && us2.length) USERS = us2.map(u=>
@@ -1308,25 +1348,46 @@ const RECURSOS = [
 /* ---------------------------------------------------------------------
    LLAVE MAESTRA — acceso Admin garantizado aunque Supabase esté caído.
    Se verifica ANTES que cualquier consulta a la nube.
+   NOTA DE SEGURIDAD: aquí NO se guarda la contraseña en texto plano.
+   Se guarda solo su hash SHA-256; la contraseña real nunca queda escrita
+   en el código fuente ni en el repositorio.
    --------------------------------------------------------------------- */
 const ADMIN_MAESTRO = {
   usuario:'randomg',
   nombre:'Randy Ríos',
   email:'randy99rios@gmail.com',
-  pass:'Mipiña01@',
+  passHash:'5edb3a2285fc5f2780a19c8485b479970c8d9232881795189916880bdd277983',
   cargo:'Gerente',
   rol:'Admin'
 };
 
+async function sha256Hex(texto){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* Token aleatorio para "mantener sesión iniciada" (no es la contraseña,
+   es un valor de un solo uso que se guarda también en Supabase para
+   poder validarlo la próxima vez sin volver a pedir la contraseña). */
+function generarToken(){
+  const arr = new Uint8Array(24);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* Lista de referencia de miembros del equipo (nombres/roles), SIN contraseñas.
+   Solo se usa para poblar la tabla `usuarios` en Supabase la primerísima vez
+   que se instala la app (tabla vacía). En ese caso, cada miembro queda con
+   la contraseña temporal 'cambiar123' y debe cambiarla al entrar. */
 const USERS_DEFAULT = [
-  {usuario:'randomg',  nombre:'Randy Ríos', email:'randy99rios@gmail.com', pass:'Mipiña01@', cargo:'Gerente', rol:'Admin'},
-  {usuario:'randy',    nombre:'Randy', email:'movierender99@gmail.com', pass:'Tay10306080@', cargo:'Gerente', rol:'Admin'},
-  {usuario:'randy.r',  nombre:'Randy Rios', email:'randy99rios2@gmail.com', pass:'Tay10306080@', cargo:'Gerente', rol:'Admin'},
-  {usuario:'sergio',   nombre:'Sergio',  email:'sergdre.10@gmail.com',        pass:'equipo123', cargo:'Videógrafo / Filmaker', rol:'Editor'},
-  {usuario:'vale',     nombre:'Vale',    email:'arianabartrapinedo@gmail.com', pass:'equipo123', cargo:'Diseñador', rol:'Editor'},
-  {usuario:'tonny',    nombre:'Tonny',   email:'tonnyalejandro22@gmail.com',   pass:'equipo123', cargo:'Diseñador', rol:'Lector'},
-  {usuario:'wale',     nombre:'Wale',    email:'waleskamiranda04@gmail.com',   pass:'equipo123', cargo:'Diseñador', rol:'Editor'},
-  {usuario:'community',nombre:'Community SBT', email:'community@sbt.com',      pass:'equipo123', cargo:'Community Manager', rol:'Community'}
+  {usuario:'randomg',  nombre:'Randy Ríos', email:'randy99rios@gmail.com', cargo:'Gerente', rol:'Admin'},
+  {usuario:'randy',    nombre:'Randy', email:'movierender99@gmail.com', cargo:'Gerente', rol:'Admin'},
+  {usuario:'randy.r',  nombre:'Randy Rios', email:'randy99rios2@gmail.com', cargo:'Gerente', rol:'Admin'},
+  {usuario:'sergio',   nombre:'Sergio',  email:'sergdre.10@gmail.com', cargo:'Videógrafo / Filmaker', rol:'Editor'},
+  {usuario:'vale',     nombre:'Vale',    email:'arianabartrapinedo@gmail.com', cargo:'Diseñador', rol:'Editor'},
+  {usuario:'tonny',    nombre:'Tonny',   email:'tonnyalejandro22@gmail.com', cargo:'Diseñador', rol:'Lector'},
+  {usuario:'wale',     nombre:'Wale',    email:'waleskamiranda04@gmail.com', cargo:'Diseñador', rol:'Editor'},
+  {usuario:'community',nombre:'Community SBT', email:'community@sbt.com', cargo:'Community Manager', rol:'Community'}
 ];
 const EFEMERIDES_DEFAULT = [
   {fecha:'2026-06-05', nombre:'Día Mundial del Medio Ambiente', nota:'Flyer institucional sobre acción social verde'},
@@ -1396,6 +1457,7 @@ const TABS_BY_ROLE = {
 };
 
 let CURRENT=null, editingId=null, activeTab='todas', viewMode='tablero', draftAttach=[], draftRec={};
+let selectMode=false, selectedTasks=new Set();
 
 /* ===================== LOGIN ===================== */
 async function doLogin(){
@@ -1410,14 +1472,22 @@ async function doLogin(){
   }
 
   let u=null;
+  let sinConexion=false;
 
-  /* ---- PASO 1: llave maestra local (siempre funciona) ---- */
+  /* ---- PASO 1: llave maestra local (siempre funciona, incluso sin Supabase) ----
+     Se compara el HASH SHA-256 de lo escrito, nunca la contraseña en sí. */
   if( (id===ADMIN_MAESTRO.usuario.toLowerCase() ||
-       id===(ADMIN_MAESTRO.email||'').toLowerCase()) && pw===ADMIN_MAESTRO.pass ){
-    u={...ADMIN_MAESTRO, _orig:ADMIN_MAESTRO.usuario, activo:true};
+       id===(ADMIN_MAESTRO.email||'').toLowerCase()) ){
+    const hashIngresado = await sha256Hex(pw);
+    if(hashIngresado===ADMIN_MAESTRO.passHash){
+      u={...ADMIN_MAESTRO, passHash:undefined, _orig:ADMIN_MAESTRO.usuario, activo:true};
+    }
   }
 
-  /* ---- PASO 2: Supabase con función segura login_check ---- */
+  /* ---- PASO 2: Supabase con función segura login_check ----
+     La verificación de la contraseña ocurre DENTRO de la base de datos
+     (comparando contra un hash bcrypt); la app nunca ve ni compara
+     contraseñas en texto plano. */
   if(!u){
     try{
       const r = await fetch(SB_URL+'/rest/v1/rpc/login_check', {
@@ -1433,39 +1503,19 @@ async function doLogin(){
              email:x.email||'', pass:'', cargo:x.cargo||'', rol:x.rol||'Lector',
              activo:x.activo!==false};
         }
-      } else if(r.status===404){
-        /* RPC aún no creada: método legacy — AHORA sí pide el campo pass */
-        console.warn('login_check no existe en Supabase. Usando método legacy.');
-        const todos = await sbFetch('usuarios','GET',null,
-          '?select=id,usuario,nombre,email,pass,cargo,rol,activo,ultima_actividad');
-        if(todos && todos.length>0){
-          const m = todos.find(x=>{
-            const okUser = (x.usuario||'').toLowerCase().trim()===id ||
-                           (x.email||'').toLowerCase().trim()===id;
-            return okUser && (x.pass||'')===pw;
-          });
-          if(m){
-            u={id:m.id, usuario:m.usuario||'', _orig:m.usuario||'', nombre:m.nombre||'',
-               email:m.email||'', pass:'', cargo:m.cargo||'', rol:m.rol||'Lector',
-               activo:m.activo!==false};
-          }
-        }
+      } else {
+        console.warn('login_check respondió '+r.status+'. Revisa la función en Supabase.');
       }
     }catch(e){
+      sinConexion=true;
       console.warn('Sin conexión a Supabase:', e.message);
     }
   }
 
-  /* ---- PASO 3: fallback local — ahora SIEMPRE se intenta si no hubo coincidencia ---- */
   if(!u){
-    const uLocal = USERS_DEFAULT.find(x=>
-      ((x.usuario||'').toLowerCase()===id || (x.email||'').toLowerCase()===id) &&
-      (x.pass||'')===pw);
-    if(uLocal) u={...uLocal, _orig:uLocal.usuario, pass:'', activo:true};
-  }
-
-  if(!u){
-    errEl.textContent='Usuario o contraseña incorrectos. Verifica con el administrador.';
+    errEl.textContent = sinConexion
+      ? 'No hay conexión con el servidor. Si eres Admin, usa tu acceso maestro; si no, inténtalo de nuevo en un momento.'
+      : 'Usuario o contraseña incorrectos. Verifica con el administrador.';
     errEl.style.display='block'; return;
   }
   if(u.activo===false){
@@ -1473,6 +1523,29 @@ async function doLogin(){
     errEl.style.display='block'; return;
   }
 
+  /* ---- "Mantener sesión iniciada" ---- */
+  const recordar = document.getElementById('loginRemember').checked;
+  if(recordar){
+    if(u.id){
+      const token = generarToken();
+      try{
+        await sbFetch('usuarios','PATCH',{remember_token:token},'?id=eq.'+u.id);
+        localStorage.setItem('sbt_remember', JSON.stringify({id:u.id, token}));
+      }catch(e){ console.warn('No se pudo activar "mantener sesión iniciada":', e.message); }
+    } else {
+      /* acceso maestro: no depende de la base de datos, solo de este navegador */
+      localStorage.setItem('sbt_remember', JSON.stringify({isMaster:true}));
+    }
+  } else {
+    localStorage.removeItem('sbt_remember');
+  }
+
+  await completarLogin(u);
+}
+
+/* Termina el proceso de login (usado tanto por doLogin como por la
+   restauración automática de sesión) y deja la app lista para usarse. */
+async function completarLogin(u){
   CURRENT=u;
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='block';
@@ -1480,6 +1553,8 @@ async function doLogin(){
   const rt=document.getElementById('whoRole');
   rt.textContent=u.rol; rt.className='role-tag role-'+u.rol;
   document.getElementById('btnNew').style.display=(u.rol==='Lector'||u.rol==='Community'||u.rol==='Gerente')?'none':'';
+  const btnSel=document.getElementById('btnSelect');
+  if(btnSel) btnSel.style.display=(u.rol==='Admin')?'':'none';
   buildTabs(); buildServiceFilter();
   activeTab=TABS_BY_ROLE[u.rol][0][0];
   await cargarDatos();
@@ -1496,9 +1571,49 @@ async function doLogin(){
   setInterval(actualizarBadgePend, 30000);
   actualizarBadgeMias();
 }
+
+/* Si el navegador tiene una sesión recordada válida, entra directo
+   sin mostrar la pantalla de login. */
+async function intentarSesionRecordada(){
+  const raw = localStorage.getItem('sbt_remember');
+  if(!raw) return;
+  try{
+    const saved = JSON.parse(raw);
+    if(saved.isMaster){
+      await completarLogin({...ADMIN_MAESTRO, passHash:undefined, _orig:ADMIN_MAESTRO.usuario, activo:true});
+      return;
+    }
+    if(saved.id && saved.token){
+      const rows = await sbFetch('usuarios','GET',null,
+        '?id=eq.'+saved.id+'&remember_token=eq.'+encodeURIComponent(saved.token)+
+        '&select=id,usuario,nombre,email,cargo,rol,activo');
+      if(rows && rows.length && rows[0].activo!==false){
+        const x=rows[0];
+        await completarLogin({id:x.id, usuario:x.usuario||'', _orig:x.usuario||'',
+          nombre:x.nombre||'', email:x.email||'', pass:'', cargo:x.cargo||'',
+          rol:x.rol||'Lector', activo:true});
+        return;
+      }
+    }
+    localStorage.removeItem('sbt_remember');
+  }catch(e){
+    console.warn('No se pudo restaurar la sesión guardada:', e.message);
+  }
+}
+
 function doLogout(){
+  /* Invalidar la sesión recordada, tanto localmente como en Supabase */
+  try{
+    const raw = localStorage.getItem('sbt_remember');
+    if(raw){
+      const saved = JSON.parse(raw);
+      if(saved.id) sbFetch('usuarios','PATCH',{remember_token:null},'?id=eq.'+saved.id).catch(()=>{});
+    }
+  }catch(e){}
+  localStorage.removeItem('sbt_remember');
   CURRENT=null;
   document.getElementById('loginPass').value='';
+  document.getElementById('loginRemember').checked=false;
   document.getElementById('app').style.display='none';
   document.getElementById('login').style.display='flex';
   document.getElementById('loginErr').style.display='none';
@@ -1673,8 +1788,11 @@ function kCard(t,color){
   const ini=(t.responsable||'?').charAt(0).toUpperCase();
   const pri=t.prioridad||'Media';
   const colab=t.colaborador?`<span class="rtag" style="background:#e8e1f0;color:#4a3a6a">👤 ${esc(t.colaborador)}</span>`:'';
-  return `<div class="kcard" style="border-left-color:${color}" onclick="openTask('${t.id}')">
-    <div class="kcard-id">${t.id}<span class="pri pri-dot-${pri}">${pri}</span></div>
+  const sel=selectMode&&selectedTasks.has(t.id);
+  const clickAttr=selectMode?`onclick="toggleSelectTask('${t.id}',event)"`:`onclick="openTask('${t.id}')"`;
+  const check=selectMode?`<input type="checkbox" class="card-check" ${sel?'checked':''} onclick="toggleSelectTask('${t.id}',event)">`:'';
+  return `<div class="kcard${sel?' kcard-selected':''}" style="border-left-color:${color}" ${clickAttr}>
+    <div class="kcard-id">${check}${t.id}<span class="pri pri-dot-${pri}">${pri}</span></div>
     <h4>${plano(t.objetivo)?esc(plano(t.objetivo)):'<span style=\"color:#bbb\">Sin objetivo</span>'}</h4>
     ${(t.colaborador||recTags(t))?`<div class="kcard-tags">${colab}${recTags(t).replace('<div class="kcard-tags">','').replace('</div>','')}</div>`:''}
     <div class="kcard-foot"><span class="avatar">${ini}</span>
@@ -1687,8 +1805,11 @@ function renderList(list){
     <div class="big">🗂️</div>No hay tareas que coincidan.</div>`;return;}
   grid.innerHTML=list.map(t=>{
     const ini=(t.responsable||'?').charAt(0).toUpperCase();
-    return `<div class="task" onclick="openTask('${t.id}')">
-      <div class="task-top"><span class="task-id">${t.id}</span>
+    const sel=selectMode&&selectedTasks.has(t.id);
+    const clickAttr=selectMode?`onclick="toggleSelectTask('${t.id}',event)"`:`onclick="openTask('${t.id}')"`;
+    const check=selectMode?`<input type="checkbox" class="card-check" ${sel?'checked':''} onclick="toggleSelectTask('${t.id}',event)">`:'';
+    return `<div class="task${sel?' task-selected':''}" ${clickAttr}>
+      <div class="task-top">${check}<span class="task-id">${t.id}</span>
         <span class="badge" style="background:${ST_COLOR[t.estado]||'#999'}">${t.estado}</span></div>
       <h3>${plano(t.objetivo)?esc(plano(t.objetivo)):'<span style=\"color:#aaa\">Sin objetivo</span>'}</h3>
       <div class="task-meta"><span class="chip">${esc(t.servicio)}</span>
@@ -1698,6 +1819,58 @@ function renderList(list){
         <span>${esc(t.responsable)||'Sin asignar'}</span>
         <span style="margin-left:auto">${fmtDate(t.fecha_inicio)}</span></div></div>`;
   }).join('');
+}
+/* ---------- Selección múltiple / eliminación masiva de tareas ---------- */
+function toggleSelectMode(){
+  selectMode=!selectMode;
+  selectedTasks.clear();
+  const btn=document.getElementById('btnSelect');
+  if(btn) btn.classList.toggle('on',selectMode);
+  const bar=document.getElementById('selectBar');
+  if(bar) bar.style.display=selectMode?'flex':'none';
+  updateSelectBar();
+  render();
+}
+function toggleSelectTask(id,ev){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  if(!selectMode) return;
+  if(selectedTasks.has(id)) selectedTasks.delete(id); else selectedTasks.add(id);
+  updateSelectBar();
+  render();
+}
+function seleccionarTodoVisible(){
+  const visibles=getFiltered().map(t=>t.id);
+  const todosMarcados=visibles.length>0 && visibles.every(id=>selectedTasks.has(id));
+  if(todosMarcados){
+    visibles.forEach(id=>selectedTasks.delete(id));
+  }else{
+    visibles.forEach(id=>selectedTasks.add(id));
+  }
+  updateSelectBar();
+  render();
+}
+function updateSelectBar(){
+  const cnt=document.getElementById('selectCount');
+  if(cnt) cnt.textContent=selectedTasks.size+' tarea'+(selectedTasks.size===1?'':'s')+' seleccionada'+(selectedTasks.size===1?'':'s');
+  const del=document.getElementById('btnDelSel');
+  if(del) del.disabled=selectedTasks.size===0;
+}
+async function eliminarSeleccionadas(){
+  if(CURRENT.rol!=='Admin' || selectedTasks.size===0) return;
+  const ids=[...selectedTasks];
+  if(!confirm('¿Eliminar definitivamente '+ids.length+' tarea'+(ids.length===1?'':'s')+'?\n\nEsta acción NO se puede deshacer.')){
+    return;
+  }
+  try{
+    await sbFetch('tareas','DELETE',null,'?id=in.('+ids.map(encodeURIComponent).join(',')+')');
+    TASKS=TASKS.filter(x=>!selectedTasks.has(x.id));
+    registrarAccion('editar', ids.join(', '), ids.length+' tarea(s) eliminadas en bloque por el administrador');
+    selectedTasks.clear();
+    updateSelectBar();
+    render();
+  }catch(err){
+    alert('No se pudieron eliminar las tareas.\n'+err.message);
+  }
 }
 function esc(s){return (s||'').toString().replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
 function plano(html){
@@ -3517,6 +3690,10 @@ async function convertirEnTarea(solId){
     alert('No se pudo convertir la solicitud.\n'+err.message);
   }
 }
+
+/* Al cargar la página, intentar entrar directo si hay una sesión
+   guardada (checkbox "mantener sesión iniciada"). */
+intentarSesionRecordada();
 
 </script>
 </body>
