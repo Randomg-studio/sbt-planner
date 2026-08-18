@@ -1086,11 +1086,13 @@ async function sbFetch(table, method='GET', body=null, query='') {
   const url = SB_URL + '/rest/v1/' + table + query;
   const opts = {
     method,
+    cache: 'no-store', // evita que el navegador sirva respuestas GET cacheadas y desactualizadas
     headers: {
       'apikey': SB_KEY,
       'Authorization': 'Bearer ' + SB_KEY,
       'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal'
+      'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal',
+      'Cache-Control': 'no-cache'
     }
   };
   if (body) opts.body = JSON.stringify(body);
