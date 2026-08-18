@@ -1862,12 +1862,20 @@ async function eliminarSeleccionadas(){
     return;
   }
   try{
-    await sbFetch('tareas','DELETE',null,'?id=in.('+ids.map(encodeURIComponent).join(',')+')');
+    const query='?id=in.('+ids.map(encodeURIComponent).join(',')+')';
+    await sbFetch('tareas','DELETE',null,query);
+    /* Verificación: confirma contra el servidor que realmente se eliminaron
+       (protege contra páginas cacheadas viejas u otros fallos silenciosos) */
+    const restantes = await sbFetch('tareas','GET',null,query+'&select=id');
+    if(restantes && restantes.length>0){
+      throw new Error('El servidor no pudo eliminar '+restantes.length+' de las '+ids.length+' tareas seleccionadas. Recarga la página por completo (Ctrl/Cmd+Shift+R) e inténtalo de nuevo.');
+    }
     TASKS=TASKS.filter(x=>!selectedTasks.has(x.id));
     registrarAccion('editar', ids.join(', '), ids.length+' tarea(s) eliminadas en bloque por el administrador');
     selectedTasks.clear();
     updateSelectBar();
     render();
+    await recargarTareas();
   }catch(err){
     alert('No se pudieron eliminar las tareas.\n'+err.message);
   }
@@ -2017,7 +2025,12 @@ async function eliminarTarea(){
     return;
   }
   try{
-    await sbFetch('tareas','DELETE',null,'?id=eq.'+encodeURIComponent(editingId));
+    const query='?id=eq.'+encodeURIComponent(editingId);
+    await sbFetch('tareas','DELETE',null,query);
+    const restantes = await sbFetch('tareas','GET',null,query+'&select=id');
+    if(restantes && restantes.length>0){
+      throw new Error('El servidor no pudo eliminar la tarea. Recarga la página por completo (Ctrl/Cmd+Shift+R) e inténtalo de nuevo.');
+    }
     TASKS=TASKS.filter(x=>x.id!==editingId);
     registrarAccion('editar', editingId, 'Tarea eliminada por el administrador');
     closeModal();
