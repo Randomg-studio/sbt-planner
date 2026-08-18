@@ -1023,7 +1023,7 @@
     <div id="view-calgerente" style="display:none">
       <div class="panel">
         <h2>Calendario de mis solicitudes</h2>
-        <p>Cada solicitud aparece en el día de la fecha de publicación que elegiste al enviarla. Solo ves tus propias solicitudes.</p>
+        <p>Aquí aparecen tus solicitudes ya aprobadas por el administrador, ubicadas en el día de la fecha de publicación que elegiste al enviarlas. Una solicitud pendiente de revisión todavía no aparece acá. Solo ves tus propias solicitudes.</p>
       </div>
       <div class="chart-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -1035,8 +1035,7 @@
           <button class="btn btn-sm" onclick="calGerHoy()">Hoy</button>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:11.5px">
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-sin);margin-right:4px"></span>Pendiente</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-proceso);margin-right:4px"></span>Convertida en tarea</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-proceso);margin-right:4px"></span>Aprobada</span>
         </div>
         <div id="calGerGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
       </div>
@@ -1139,10 +1138,7 @@
         <div class="field"><label>Fecha de publicación</label><input type="date" id="mFechaPub"></div>
         <div class="field"><label>Hora de publicación</label><input type="time" id="mHoraPub"></div>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Fecha de finalización</label><input type="date" id="mFechaFin"></div>
-        <div class="field"><label>Plataforma</label><input id="mPlataforma" placeholder="Facebook, Instagram, TikTok"></div>
-      </div>
+      <div class="field"><label>Plataforma</label><input id="mPlataforma" placeholder="Facebook, Instagram, TikTok"></div>
 
       <!-- RECURSOS REQUERIDOS -->
       <div class="section-label">Recursos que requiere esta tarea</div>
@@ -1173,6 +1169,15 @@
       <div class="field"><label>Observaciones</label>
         <textarea id="mObs" placeholder="Notas, indicaciones o detalles adicionales…"
           style="min-height:130px"></textarea></div>
+
+      <!-- RESUMEN DE TAREA — visible y editable SOLO para el Admin. Guarda el
+           contexto administrativo (de qué solicitud vino, cuándo se envió,
+           etc.), separado de "Observaciones" que sí ven todos los roles. -->
+      <div class="field" id="resumenWrap" style="display:none">
+        <div class="section-label" style="margin-top:6px">Resumen de tarea (solo administrador)</div>
+        <textarea id="mResumen" placeholder="Contexto interno de administración: origen de la solicitud, fecha de envío, etc. Nadie más que el Admin ve este campo."
+          style="min-height:100px"></textarea>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-sm" id="btnDelTask" onclick="eliminarTarea()"
@@ -1245,7 +1250,7 @@ function taskFromRow(t) {
     colaborador:t.colaborador||'', area:t.area||'', tipo:t.tipo||'',
     plataforma:t.plataforma||'', servicio:t.servicio||'', objetivo:t.objetivo||'',
     prioridad:t.prioridad||'Media', estado:t.estado||'Sin estado',
-    fecha_inicio:t.fecha_inicio||'', fecha_fin:t.fecha_fin||'', copy:t.copy||'', observaciones:t.observaciones||'',
+    fecha_inicio:t.fecha_inicio||'', copy:t.copy||'', observaciones:t.observaciones||'', resumen:t.resumen||'',
     recursos: typeof t.recursos==='object' ? t.recursos : JSON.parse(t.recursos||'{}'),
     adjuntos: Array.isArray(t.adjuntos) ? t.adjuntos : JSON.parse(t.adjuntos||'[]'),
     metricas: typeof t.metricas==='object' ? t.metricas : JSON.parse(t.metricas||'{}'),
@@ -1389,7 +1394,7 @@ async function saveTaskToDB(data, isNew) {
     colaborador:data.colaborador||'', area:data.area||'', tipo:data.tipo||'',
     plataforma:data.plataforma||'', servicio:data.servicio||'', objetivo:data.objetivo||'',
     prioridad:data.prioridad||'Media', estado:data.estado||'Sin estado',
-    fecha_inicio:data.fecha_inicio||'', fecha_fin:data.fecha_fin||'', copy:data.copy||'', observaciones:data.observaciones||'',
+    fecha_inicio:data.fecha_inicio||'', copy:data.copy||'', observaciones:data.observaciones||'', resumen:data.resumen||'',
     recursos:JSON.stringify(data.recursos||{}),
     adjuntos:JSON.stringify(data.adjuntos||[]),
     metricas:JSON.stringify(data.metricas||{}),
@@ -1571,6 +1576,19 @@ const SERVICIOS = ['SBT','La Casa del Sabor','FONASOL (Programa de crédito de s
   'Manos que alimentan corazones','SAA (Servicio de Apoyo Alimentario)',
   'SIEF (Servicio Integral Especializado para la Prevención de la Violencia en las Familias)',
   'Vallas Publicitarias','Programas Sociales','Sin definir'];
+
+/* Relaciona el "Tipo de contenido" de una solicitud con el "Cargo" (definido
+   en Usuarios) de quien debería encargarse, para asignar Responsable
+   automáticamente al aprobar una solicitud. Si el tipo no tiene un cargo
+   claro asociado (ej. "Otro"), queda sin asignar automáticamente. */
+const TIPO_CARGO_MAP = {
+  'Flyer':'Diseñador',
+  'Impresión':'Diseñador',
+  'Video':'Videógrafo / Filmaker',
+  'Foto':'Videógrafo / Filmaker',
+  'Guion':'Videógrafo / Filmaker',
+  'Cobertura de evento':'Videógrafo / Filmaker'
+};
 
 const ST_COLOR = {'En proceso':'var(--st-proceso)','Diseñado':'var(--st-finalizado)',
   'Publicado/Finalizado':'var(--st-publicado)','Programado':'var(--st-programado)','No realizado':'var(--st-norealizado)','Sin estado':'var(--st-sin)'};
@@ -2045,7 +2063,7 @@ function openNew(){
   const n=TASKS.length+1;
   fillModal({id:'SBT-'+String(n).padStart(3,'0'),estado:'Sin estado',objetivo:'',
     responsable:CURRENT.nombre.replace(' (Admin)','').trim(),colaborador:'',prioridad:'Media',
-    servicio:'SBT',tipo:'Flyer',fecha_inicio:'',fecha_pub:'',hora_pub:'',fecha_fin:'',plataforma:'',copy:'',observaciones:'',
+    servicio:'SBT',tipo:'Flyer',fecha_inicio:'',fecha_pub:'',hora_pub:'',plataforma:'',copy:'',observaciones:'',resumen:'',
     recursos:{},adjuntos:[],metricas:{}},true);
 }
 /* Devuelve la fecha solo si viene en formato ISO (yyyy-mm-dd), para no romper
@@ -2077,9 +2095,9 @@ function fillModal(t,isNew){
   document.getElementById('mFechaIni').value=t.fecha_inicio||'';
   document.getElementById('mFechaPub').value=soloFechaISO(t.fecha_pub);
   document.getElementById('mHoraPub').value=t.hora_pub||'';
-  document.getElementById('mFechaFin').value=t.fecha_fin||'';
   document.getElementById('mPlataforma').value=t.plataforma||'';
   document.getElementById('mObs').value=t.observaciones||'';
+  document.getElementById('mResumen').value=t.resumen||'';
   document.getElementById('mCopy').value=t.copy||'';
   document.getElementById('copyWrap').style.display='block';
   /* recursos */
@@ -2104,7 +2122,7 @@ function applyPermissions(){
   const save=document.getElementById('btnSave');
   const editorFields=['mEstado'];
   const allFields=['mEstado','mObjetivo','mResponsable','mColaborador','mServicio',
-    'mPrioridad','mTipo','mFechaIni','mFechaPub','mHoraPub','mFechaFin','mPlataforma','mCopy','mObs'];
+    'mPrioridad','mTipo','mFechaIni','mFechaPub','mHoraPub','mPlataforma','mCopy','mObs','mResumen'];
   const setRO=(id,ro)=>{const el=document.getElementById(id);if(!el)return;
     if(el.tagName==='SELECT'){el.disabled=ro;el.classList.toggle('ro',ro);}
     else if(el.hasAttribute('contenteditable')){el.contentEditable=!ro;el.classList.toggle('ro',ro);
@@ -2157,6 +2175,11 @@ function applyPermissions(){
   if(delBtn){
     delBtn.style.display=(rol==='Admin' && editingId)?'':'none';
   }
+  /* "Resumen de tarea": SOLO el Admin lo ve. Para el resto ni siquiera se
+     muestra la sección (no solo bloqueada), porque contiene contexto
+     administrativo interno que no les corresponde ver. */
+  const resumenWrap=document.getElementById('resumenWrap');
+  if(resumenWrap){ resumenWrap.style.display = (rol==='Admin') ? 'block' : 'none'; }
 }
 function closeModal(){document.getElementById('overlay').classList.remove('show');}
 
@@ -2255,10 +2278,10 @@ async function saveTask(){
     fecha_inicio:document.getElementById('mFechaIni').value,
     fecha_pub:document.getElementById('mFechaPub').value,
     hora_pub:document.getElementById('mHoraPub').value,
-    fecha_fin:document.getElementById('mFechaFin').value,
     plataforma:document.getElementById('mPlataforma').value,
     copy:document.getElementById('mCopy').value,
     observaciones:document.getElementById('mObs').value,
+    resumen:document.getElementById('mResumen').value,
     recursos:collectRec(),adjuntos:draftAttach.slice()
   };
   let _estadoAnterior=null, _accion='editar';
@@ -3229,10 +3252,13 @@ async function renderCalendarioGerente(){
   if(!grid || !CURRENT) return;
   grid.innerHTML='<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:10px">Cargando…</div>';
 
+  /* Solo se muestran las solicitudes YA aprobadas/convertidas por el
+     administrador — mientras una solicitud sigue pendiente de revisión, no
+     aparece todavía en este calendario. */
   let sols=[];
   try{
     sols = await sbFetch('solicitudes','GET',null,
-      '?gerente=eq.'+encodeURIComponent(CURRENT.usuario)+'&order=fecha.desc') || [];
+      '?gerente=eq.'+encodeURIComponent(CURRENT.usuario)+'&estado=eq.convertida&order=fecha.desc') || [];
   }catch(e){
     grid.innerHTML='<div style="grid-column:1/-1;color:var(--clay);font-size:13px;padding:10px">No se pudieron cargar tus solicitudes.</div>';
     return;
@@ -3263,11 +3289,8 @@ async function renderCalendarioGerente(){
     const more=(byDay[d]||[]).length-4;
     html+=`<div class="cal-day${isToday?' today':''}">
       <div class="cal-dn" style="color:${isToday?'var(--gold)':'var(--muted)'}">${d}${isToday?' ●':''}</div>
-      ${evs.map(s=>{
-        const conv=s.estado==='convertida';
-        return `<div class="cal-event" style="background:${conv?'var(--st-proceso)':'var(--st-sin)'}"
-          onclick="verSolicitudGerCal(${s.id})" title="${esc(s.campana)} — ${conv?'Convertida en tarea':'Pendiente'}">${esc(s.campana).slice(0,14)}</div>`;
-      }).join('')}
+      ${evs.map(s=>`<div class="cal-event" style="background:var(--st-proceso)"
+          onclick="verSolicitudGerCal(${s.id})" title="${esc(s.campana)} — Aprobada">${esc(s.campana).slice(0,14)}</div>`).join('')}
       ${more>0?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">+${more} más</div>`:''}
     </div>`;
   }
@@ -3966,32 +3989,46 @@ async function convertirEnTarea(solId){
       .map(l=>({tipo:'enlace', nombre:/^https?:\/\//.test(l)?l:'https://'+l, data:/^https?:\/\//.test(l)?l:'https://'+l}));
     const adjuntosSol = s.foto ? [{tipo:'imagen', nombre:(s.foto_nombre||'referencia.jpg'), data:s.foto}] : [];
 
-    /* Observaciones: se deja registro de cuándo se envió la solicitud original
-       y de los comentarios adicionales del gerente, para que el administrador
-       no pierda ese contexto al pasar todo a planificación. */
-    let obs='Generada desde la solicitud #'+s.id+' del gerente '+(s.gerente_nombre||'')+
+    /* Responsable automático según el tipo de contenido pedido, buscando en
+       Usuarios a la primera persona activa cuyo Cargo corresponde a ese tipo
+       de trabajo (Flyer/Impresión → Diseñador; Video/Foto/Guion/Cobertura de
+       evento → Videógrafo / Filmaker). Si no hay nadie con ese cargo, o el
+       tipo es "Otro", queda sin asignar para que el administrador lo haga. */
+    const cargoBuscado = TIPO_CARGO_MAP[s.tipo] || null;
+    const asignado = cargoBuscado
+      ? USERS.find(u=>u.activo!==false && (u.cargo||'')===cargoBuscado)
+      : null;
+
+    /* Observaciones: SOLO los comentarios que el propio gerente escribió al
+       enviar la solicitud (contenido real para quien hace el trabajo). El
+       rastro administrativo (de qué solicitud viene, cuándo se envió, etc.)
+       ya NO va acá — va en "Resumen de tarea", que solo ve el Admin. */
+    const obs = (s.comentarios||'').trim();
+
+    /* Resumen de tarea (solo Admin): contexto administrativo/de auditoría. */
+    const resumenAdmin='Generada desde la solicitud #'+s.id+' del gerente '+(s.gerente_nombre||'')+
       '. Solicitud enviada el '+fmtFechaHora(s.fecha)+
       '. Cobertura: '+s.cobertura+'. Impresión: '+s.impresion+'.';
-    if((s.comentarios||'').trim()) obs += '\n\nComentarios del gerente: '+s.comentarios.trim();
 
     /* armar la tarea con los datos de la solicitud — todo queda automatizado:
        - Colaborador = el gerente que hizo la solicitud
        - Servicio/Programa = el que el propio gerente eligió en su solicitud
+       - Responsable = la persona con el cargo correspondiente al tipo de trabajo
        - Estado pasa de "Sin estado" a "En proceso" automáticamente
        - Objetivo/Tarea = título en negrita + descripción debajo
        - Fecha de publicación = la fecha que el gerente pidió
-       - Fecha de programación queda libre para que el administrador la
-         defina al planificar el trabajo interno */
+       - Fecha de programación = el día en que se envió la solicitud original
+         (independiente del día en que el administrador la aprueba) */
     const tarea={
       id:nuevoId,
       fecha_pub:s.fecha_limite||'', hora_pub:'',
-      responsable:'', colaborador:s.gerente_nombre||'',
+      responsable: asignado ? asignado.nombre : '', colaborador:s.gerente_nombre||'',
       area:'', tipo:s.tipo||'Otro', plataforma:s.plataforma||'',
       servicio:s.servicio||'Sin definir',
       objetivo:'<b>'+esc(s.campana)+'</b><br>'+esc(s.descripcion),
       prioridad:s.prioridad||'Media', estado:'En proceso',
-      fecha_inicio:'', fecha_fin:'',
-      copy:'', observaciones:obs,
+      fecha_inicio:(s.fecha||'').slice(0,10),
+      copy:'', observaciones:obs, resumen:resumenAdmin,
       recursos: s.cobertura==='Sí'?{cobertura:{on:true}}:{},
       adjuntos: [...adjuntosSol, ...linksArr],
       metricas:{},
