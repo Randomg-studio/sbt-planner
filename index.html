@@ -1141,20 +1141,11 @@ async function cargarDatos() {
 
     /* Tareas */
     const ts = await sbFetch('tareas','GET',null,'?select=*&order=creado');
-    if (ts && ts.length > 0) {
-      TASKS = ts.map(taskFromRow);
-    } else {
-      for (const t of TASKS_DEFAULT) {
-        try {
-          const row = {...t}; delete row._upd;
-          row.recursos = JSON.stringify(row.recursos||{});
-          row.adjuntos = JSON.stringify(row.adjuntos||[]);
-          row.metricas = JSON.stringify(row.metricas||{});
-          await sbFetch('tareas','POST',row);
-        } catch(e) {}
-      }
-      TASKS = [...TASKS_DEFAULT];
-    }
+    // Nota: ya NO se reinsertan tareas de ejemplo (TASKS_DEFAULT) cuando la tabla
+    // está vacía. Antes, cada vez que 'tareas' quedaba en 0 filas (por ejemplo tras
+    // un borrado intencional), esta función volvía a sembrar 24 tareas de muestra
+    // automáticamente, haciendo que el borrado pareciera "revertirse" solo.
+    TASKS = (ts || []).map(taskFromRow);
 
     /* Efemérides */
     const ef = await sbFetch('efemerides','GET',null,'?select=*&order=fecha');
