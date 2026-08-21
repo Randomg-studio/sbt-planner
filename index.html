@@ -291,6 +291,11 @@
   .copybox{background:#f7f7fb;border:1px solid var(--line);border-radius:9px;
     padding:11px 13px;font-size:13px;white-space:pre-wrap;line-height:1.5;
     max-height:160px;overflow-y:auto;color:#43463e}
+  .resumen-box{background:#f7f7fb;border:1px solid var(--line);border-radius:9px;
+    padding:12px 14px;font-size:13px;line-height:1.6;color:#43463e}
+  .resumen-box ul{margin:0;padding-left:18px}
+  .resumen-box li{margin-bottom:4px}
+  .resumen-lock{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-bottom:8px}
   .section-label{font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;
     color:var(--moss-d);margin:20px 0 11px;padding-bottom:6px;
     border-bottom:1px solid var(--line)}
@@ -959,7 +964,7 @@
           <div class="field"><label>Servicio / Programa</label>
             <select id="solServicio"></select></div>
           <div class="field"><label>Tipo de contenido</label>
-            <select id="solTipo">
+            <select id="solTipo" onchange="onSolTipoChange()">
               <option>Flyer</option><option>Video</option><option>Foto</option>
               <option>Guion</option><option>Cobertura de evento</option>
               <option>Impresión</option><option>Otro</option></select></div>
@@ -974,6 +979,13 @@
           <div class="field"><label>Fecha de publicación</label>
             <input type="date" id="solFecha"></div>
         </div>
+        <!-- Fecha del evento: solo aparece cuando el tipo de contenido es "Cobertura
+             de evento". Es independiente de la fecha de publicación: la fecha de
+             publicación es cuándo sale el flyer/post, la del evento es cuándo ocurre
+             el evento en sí. -->
+        <div class="field" id="solFechaEventoWrap" style="display:none">
+          <label>Fecha del evento</label>
+          <input type="date" id="solFechaEvento"></div>
         <div class="field-row">
           <div class="field"><label>¿Requiere cobertura de evento?</label>
             <select id="solCobertura"><option>No</option><option>Sí</option></select></div>
@@ -982,25 +994,31 @@
         </div>
         <div class="field"><label>Prioridad sugerida</label>
           <select id="solPrioridad"><option>Media</option><option>Alta</option><option>Baja</option></select></div>
+
+        <!-- Recursos que podría necesitar el trabajo -->
+        <div class="section-label" style="margin-top:6px">Recursos que crees que se necesitan (opcional)</div>
+        <div class="res-grid" id="solResGrid"></div>
+
         <div class="field"><label>Enlaces (opcional)</label>
           <textarea id="solLinks" placeholder="Pega uno o más enlaces de referencia, uno por línea" style="min-height:60px"></textarea></div>
-        <div class="field"><label>Comentarios adicionales (opcional)</label>
+        <div class="field"><label>Observaciones (opcional)</label>
           <textarea id="solComentarios" placeholder="Cualquier detalle extra para el administrador o el equipo" style="min-height:70px"></textarea></div>
 
-        <!-- Foto de referencia (opcional) -->
+        <!-- Foto o documento de referencia (opcional) -->
         <div class="field">
-          <label>Foto de referencia (opcional)</label>
+          <label>Foto o documento de referencia (opcional)</label>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px">
             <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('solFoto').click()">
-              📷 Adjuntar foto
+              📎 Adjuntar archivo
             </button>
-            <input type="file" id="solFoto" accept="image/*" style="display:none" onchange="leerFotoSolicitud(event)">
-            <span id="solFotoNombre" style="font-size:12.5px;color:var(--muted)">Ninguna foto adjunta</span>
+            <input type="file" id="solFoto" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv"
+              style="display:none" onchange="leerFotoSolicitud(event)">
+            <span id="solFotoNombre" style="font-size:12.5px;color:var(--muted)">Ningún archivo adjunto</span>
             <button type="button" id="solFotoQuitar" class="btn btn-sm btn-ghost"
               style="display:none;background:var(--clay);color:#fff" onclick="quitarFotoSolicitud()">× Quitar</button>
           </div>
           <div id="solFotoPreview" style="margin-top:10px"></div>
-          <p style="font-size:11.5px;color:var(--muted);margin-top:4px">Máx 1.5 MB. Se mostrará al administrador junto con tu solicitud.</p>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:4px">Imagen, PDF, Word o Excel — máx 5 MB. Se mostrará al administrador junto con tu solicitud.</p>
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
@@ -1054,6 +1072,15 @@
             <option value="convertida">Ya convertidas</option>
           </select>
           <button class="btn btn-sm btn-ghost" onclick="renderPendientes()">↻ Actualizar</button>
+          <label style="margin:0 0 0 auto;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="pendSelAll" onchange="toggleSelTodasSolicitudes(this.checked)" style="width:auto">
+            Seleccionar todas
+          </label>
+        </div>
+        <div id="pendSelBar" style="display:none;align-items:center;gap:10px;margin-top:10px;
+          background:#eef4fc;border:1px solid var(--line);border-radius:9px;padding:9px 13px">
+          <span id="pendSelCount" style="font-size:13px;font-weight:600;color:var(--moss-d)"></span>
+          <button class="btn btn-sm" onclick="aprobarSeleccionadas()">✅ Aprobar seleccionadas</button>
         </div>
       </div>
       <div id="pendientesLista"></div>
@@ -1130,7 +1157,7 @@
       <div class="field-row">
         <div class="field"><label>Tipo</label>
           <select id="mTipo"><option>Flyer</option><option>Video</option><option>Foto</option>
-            <option>Guion</option><option>OTRO</option></select>
+            <option>Guion</option><option>Cobertura de evento</option><option>Impresión</option><option>OTRO</option></select>
         </div>
         <div class="field"><label>Fecha de programación</label><input type="date" id="mFechaIni"></div>
       </div>
@@ -1138,7 +1165,10 @@
         <div class="field"><label>Fecha de publicación</label><input type="date" id="mFechaPub"></div>
         <div class="field"><label>Hora de publicación</label><input type="time" id="mHoraPub"></div>
       </div>
-      <div class="field"><label>Plataforma</label><input id="mPlataforma" placeholder="Facebook, Instagram, TikTok"></div>
+      <div class="field-row">
+        <div class="field"><label>Plataforma</label><input id="mPlataforma" placeholder="Facebook, Instagram, TikTok"></div>
+        <div class="field"><label>Fecha del evento (si aplica)</label><input type="date" id="mFechaEvento"></div>
+      </div>
 
       <!-- RECURSOS REQUERIDOS -->
       <div class="section-label">Recursos que requiere esta tarea</div>
@@ -1170,13 +1200,14 @@
         <textarea id="mObs" placeholder="Notas, indicaciones o detalles adicionales…"
           style="min-height:130px"></textarea></div>
 
-      <!-- RESUMEN DE TAREA — visible y editable SOLO para el Admin. Guarda el
-           contexto administrativo (de qué solicitud vino, cuándo se envió,
-           etc.), separado de "Observaciones" que sí ven todos los roles. -->
+      <!-- RESUMEN DE TAREA — visible SOLO para el Admin. Contexto administrativo
+           generado automáticamente por el sistema (de qué solicitud vino, cuándo
+           se envió, etc.), separado de "Observaciones" que sí ven todos los roles.
+           No es un campo editable: nadie lo modifica manualmente, ni siquiera el Admin. -->
       <div class="field" id="resumenWrap" style="display:none">
         <div class="section-label" style="margin-top:6px">Resumen de tarea (solo administrador)</div>
-        <textarea id="mResumen" placeholder="Contexto interno de administración: origen de la solicitud, fecha de envío, etc. Nadie más que el Admin ve este campo."
-          style="min-height:100px"></textarea>
+        <div class="resumen-lock">🔒 Generado automáticamente por el sistema — no se puede editar</div>
+        <div id="mResumen" class="resumen-box"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1250,7 +1281,8 @@ function taskFromRow(t) {
     colaborador:t.colaborador||'', area:t.area||'', tipo:t.tipo||'',
     plataforma:t.plataforma||'', servicio:t.servicio||'', objetivo:t.objetivo||'',
     prioridad:t.prioridad||'Media', estado:t.estado||'Sin estado',
-    fecha_inicio:t.fecha_inicio||'', copy:t.copy||'', observaciones:t.observaciones||'', resumen:t.resumen||'',
+    fecha_inicio:t.fecha_inicio||'', fecha_evento:t.fecha_evento||'',
+    copy:t.copy||'', observaciones:t.observaciones||'', resumen:t.resumen||'',
     recursos: typeof t.recursos==='object' ? t.recursos : JSON.parse(t.recursos||'{}'),
     adjuntos: Array.isArray(t.adjuntos) ? t.adjuntos : JSON.parse(t.adjuntos||'[]'),
     metricas: typeof t.metricas==='object' ? t.metricas : JSON.parse(t.metricas||'{}'),
@@ -1394,7 +1426,8 @@ async function saveTaskToDB(data, isNew) {
     colaborador:data.colaborador||'', area:data.area||'', tipo:data.tipo||'',
     plataforma:data.plataforma||'', servicio:data.servicio||'', objetivo:data.objetivo||'',
     prioridad:data.prioridad||'Media', estado:data.estado||'Sin estado',
-    fecha_inicio:data.fecha_inicio||'', copy:data.copy||'', observaciones:data.observaciones||'', resumen:data.resumen||'',
+    fecha_inicio:data.fecha_inicio||'', fecha_evento:data.fecha_evento||'',
+    copy:data.copy||'', observaciones:data.observaciones||'', resumen:data.resumen||'',
     recursos:JSON.stringify(data.recursos||{}),
     adjuntos:JSON.stringify(data.adjuntos||[]),
     metricas:JSON.stringify(data.metricas||{}),
@@ -2068,7 +2101,7 @@ function openNew(){
   const n=TASKS.length+1;
   fillModal({id:'SBT-'+String(n).padStart(3,'0'),estado:'Sin estado',objetivo:'',
     responsable:CURRENT.nombre.replace(' (Admin)','').trim(),colaborador:'',prioridad:'Media',
-    servicio:'SBT',tipo:'Flyer',fecha_inicio:'',fecha_pub:'',hora_pub:'',plataforma:'',copy:'',observaciones:'',resumen:'',
+    servicio:'SBT',tipo:'Flyer',fecha_inicio:'',fecha_pub:'',hora_pub:'',fecha_evento:'',plataforma:'',copy:'',observaciones:'',resumen:'',
     recursos:{},adjuntos:[],metricas:{}},true);
 }
 /* Devuelve la fecha solo si viene en formato ISO (yyyy-mm-dd), para no romper
@@ -2111,9 +2144,10 @@ function fillModal(t,isNew){
   document.getElementById('mFechaIni').value=t.fecha_inicio||'';
   document.getElementById('mFechaPub').value=soloFechaISO(t.fecha_pub);
   document.getElementById('mHoraPub').value=t.hora_pub||'';
+  document.getElementById('mFechaEvento').value=soloFechaISO(t.fecha_evento);
   document.getElementById('mPlataforma').value=t.plataforma||'';
   document.getElementById('mObs').value=t.observaciones||'';
-  document.getElementById('mResumen').value=t.resumen||'';
+  document.getElementById('mResumen').innerHTML=t.resumen||'<span style="color:var(--muted)">Sin resumen — esta tarea no viene de una solicitud aprobada.</span>';
   document.getElementById('mCopy').value=t.copy||'';
   document.getElementById('copyWrap').style.display='block';
   /* recursos */
@@ -2137,8 +2171,12 @@ function applyPermissions(){
   const lock=document.getElementById('lockNote');
   const save=document.getElementById('btnSave');
   const editorFields=['mEstado'];
+  /* mResumen NO va en allFields: nunca es editable por nadie, ni siquiera el
+     Admin — es un texto generado por el sistema, solo su visibilidad se
+     controla (más abajo, con resumenWrap). mFechaEvento sí se bloquea igual
+     que el resto de campos según el rol. */
   const allFields=['mEstado','mObjetivo','mResponsable','mColaborador','mServicio',
-    'mPrioridad','mTipo','mFechaIni','mFechaPub','mHoraPub','mPlataforma','mCopy','mObs','mResumen'];
+    'mPrioridad','mTipo','mFechaIni','mFechaPub','mHoraPub','mFechaEvento','mPlataforma','mCopy','mObs'];
   const setRO=(id,ro)=>{const el=document.getElementById(id);if(!el)return;
     if(el.tagName==='SELECT'){el.disabled=ro;el.classList.toggle('ro',ro);}
     else if(el.hasAttribute('contenteditable')){el.contentEditable=!ro;el.classList.toggle('ro',ro);
@@ -2294,10 +2332,13 @@ async function saveTask(){
     fecha_inicio:document.getElementById('mFechaIni').value,
     fecha_pub:document.getElementById('mFechaPub').value,
     hora_pub:document.getElementById('mHoraPub').value,
+    fecha_evento:document.getElementById('mFechaEvento').value,
     plataforma:document.getElementById('mPlataforma').value,
     copy:document.getElementById('mCopy').value,
     observaciones:document.getElementById('mObs').value,
-    resumen:document.getElementById('mResumen').value,
+    /* El resumen nunca se edita desde el modal (no es un campo de formulario);
+       se conserva tal cual venía la tarea, para no perderlo al guardar otros cambios. */
+    resumen:(editingId ? ((TASKS.find(x=>x.id===editingId)||{}).resumen||'') : ''),
     recursos:collectRec(),adjuntos:draftAttach.slice()
   };
   let _estadoAnterior=null, _accion='editar';
@@ -3781,21 +3822,71 @@ function prepararSolicitud(){
   if(sel && sel.options.length===0){
     sel.innerHTML=SERVICIOS.map(s=>`<option>${s}</option>`).join('');
   }
+  buildSolResGrid();
+  onSolTipoChange();
 }
 
-/* ---- Manejo de foto adjunta en solicitudes (gerente) ---- */
-let solFotoData = '';   /* data URL de la foto cargada */
+/* Recursos del formulario de solicitud: los mismos que en la tarea, salvo
+   "Cobertura" (esa ya tiene su propio selector Sí/No arriba, y además se
+   marca sola cuando el tipo de contenido es "Cobertura de evento"). */
+const RECURSOS_SOLICITUD = RECURSOS.filter(r=>r.key!=='cobertura');
+function buildSolResGrid(){
+  const grid=document.getElementById('solResGrid');
+  if(!grid) return;
+  grid.innerHTML=RECURSOS_SOLICITUD.map(r=>`
+    <div class="res-item" id="sol-res-${r.key}">
+      <label class="res-check">
+        <input type="checkbox" id="sol-rc-${r.key}" onchange="toggleSolRes('${r.key}')"> ${r.label}
+      </label>
+      ${r.detalle?`<div class="res-detail"><input id="sol-rd-${r.key}" placeholder="${r.ph}"></div>`:''}
+    </div>`).join('');
+}
+function toggleSolRes(k){
+  const on=document.getElementById('sol-rc-'+k).checked;
+  document.getElementById('sol-res-'+k).classList.toggle('on',on);
+}
+function collectSolRecursos(){
+  const r={};
+  RECURSOS_SOLICITUD.forEach(x=>{
+    const cb=document.getElementById('sol-rc-'+x.key);
+    if(cb && cb.checked){
+      r[x.key]={on:true};
+      if(x.detalle){const di=document.getElementById('sol-rd-'+x.key);if(di&&di.value.trim())r[x.key].detalle=di.value.trim();}
+    }
+  });
+  return r;
+}
+/* Al elegir "Cobertura de evento" como tipo de contenido: se muestra el
+   campo Fecha del evento y se marca automáticamente "¿Requiere cobertura
+   de evento?" = Sí, para que el administrador no tenga que hacerlo aparte. */
+function onSolTipoChange(){
+  const tipo=document.getElementById('solTipo').value;
+  const esCobertura = tipo==='Cobertura de evento';
+  document.getElementById('solFechaEventoWrap').style.display = esCobertura ? 'block' : 'none';
+  if(esCobertura){ document.getElementById('solCobertura').value='Sí'; }
+}
+
+/* ---- Manejo de archivo adjunto en solicitudes (gerente): imagen o documento ---- */
+let solFotoData = '';   /* data URL del archivo cargado */
+const SOL_TIPOS_DOC = ['application/pdf','application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','text/csv'];
+const SOL_MAX_BYTES = 5*1024*1024; /* 5 MB */
 
 function leerFotoSolicitud(ev){
   const f = ev.target.files[0];
   if(!f) return;
-  if(!f.type.startsWith('image/')){
-    alert('Solo puedes adjuntar imágenes.');
+  const esImagen = f.type.startsWith('image/');
+  const esDocPermitido = SOL_TIPOS_DOC.includes(f.type) ||
+    /\.(pdf|docx?|xlsx?|csv)$/i.test(f.name); /* respaldo si el navegador no reporta el MIME type */
+  if(!esImagen && !esDocPermitido){
+    alert('Solo puedes adjuntar una imagen, PDF, Word (.doc/.docx) o Excel (.xls/.xlsx/.csv).');
     ev.target.value = '';
     return;
   }
-  if(f.size > 1.5*1024*1024){
-    alert('La foto es demasiado pesada ('+(f.size/1024/1024).toFixed(1)+' MB). El máximo es 1.5 MB.\n\nIntenta con una versión más liviana o usa una herramienta para comprimirla.');
+  if(f.size > SOL_MAX_BYTES){
+    alert('El archivo es demasiado pesado ('+(f.size/1024/1024).toFixed(1)+' MB). El máximo es 5 MB.\n\nIntenta con una versión más liviana o comprimida.');
     ev.target.value = '';
     return;
   }
@@ -3804,8 +3895,11 @@ function leerFotoSolicitud(ev){
     solFotoData = e.target.result;
     document.getElementById('solFotoNombre').textContent = f.name+' ('+(f.size/1024).toFixed(0)+' KB)';
     document.getElementById('solFotoQuitar').style.display = 'inline-flex';
-    document.getElementById('solFotoPreview').innerHTML =
-      `<img src="${solFotoData}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--line)">`;
+    document.getElementById('solFotoPreview').innerHTML = esImagen
+      ? `<img src="${solFotoData}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--line)">`
+      : `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#43463e;
+           background:#f7f7fb;border:1px solid var(--line);border-radius:8px;padding:9px 12px">
+           📄 ${esc(f.name)}</div>`;
   };
   reader.readAsDataURL(f);
 }
@@ -3813,7 +3907,7 @@ function leerFotoSolicitud(ev){
 function quitarFotoSolicitud(){
   solFotoData = '';
   document.getElementById('solFoto').value = '';
-  document.getElementById('solFotoNombre').textContent = 'Ninguna foto adjunta';
+  document.getElementById('solFotoNombre').textContent = 'Ningún archivo adjunto';
   document.getElementById('solFotoQuitar').style.display = 'none';
   document.getElementById('solFotoPreview').innerHTML = '';
 }
@@ -3835,12 +3929,14 @@ async function enviarSolicitud(){
     descripcion: desc,
     plataforma: document.getElementById('solPlataforma').value.trim(),
     fecha_limite: document.getElementById('solFecha').value,
+    fecha_evento: document.getElementById('solFechaEvento').value,
     cobertura: document.getElementById('solCobertura').value,
     impresion: document.getElementById('solImpresion').value,
     prioridad: document.getElementById('solPrioridad').value,
+    recursos: JSON.stringify(collectSolRecursos()),
     links: document.getElementById('solLinks').value.trim(),
     comentarios: document.getElementById('solComentarios').value.trim(),
-    foto: solFotoData,                              /* foto de referencia opcional */
+    foto: solFotoData,                              /* foto o documento de referencia opcional */
     foto_nombre: solFotoData ? (document.getElementById('solFoto').files[0]?.name || 'referencia.jpg') : '',
     estado: 'pendiente',
     fecha: new Date().toISOString()
@@ -3852,8 +3948,17 @@ async function enviarSolicitud(){
     document.getElementById('solDesc').value='';
     document.getElementById('solPlataforma').value='';
     document.getElementById('solFecha').value='';
+    document.getElementById('solFechaEvento').value='';
+    document.getElementById('solCobertura').value='No';
+    document.getElementById('solImpresion').value='No';
     document.getElementById('solLinks').value='';
     document.getElementById('solComentarios').value='';
+    RECURSOS_SOLICITUD.forEach(r=>{
+      const cb=document.getElementById('sol-rc-'+r.key); if(cb){cb.checked=false;}
+      const it=document.getElementById('sol-res-'+r.key); if(it){it.classList.remove('on');}
+      if(r.detalle){const di=document.getElementById('sol-rd-'+r.key); if(di){di.value='';}}
+    });
+    onSolTipoChange();
     quitarFotoSolicitud();
     const msg=document.getElementById('solMsg');
     msg.style.display='inline';
@@ -3884,6 +3989,11 @@ async function renderMisSolicitudes(){
 async function renderPendientes(){
   const cont=document.getElementById('pendientesLista');
   cont.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px">Cargando solicitudes…</div>';
+  /* Cada refresco reconstruye las tarjetas, así que la selección anterior
+     (referida a checkboxes que ya no existen en el DOM) se limpia. */
+  solsSeleccionadas.clear();
+  actualizarBarraSeleccion();
+  const selAll=document.getElementById('pendSelAll'); if(selAll) selAll.checked=false;
   const filtro=document.getElementById('pendFiltro').value;
   try{
     let q='?order=fecha.desc';
@@ -3902,18 +4012,19 @@ async function renderPendientes(){
 /* Tarjeta de una solicitud — esAdmin decide si muestra el botón Convertir */
 function tarjetaSolicitud(s,esAdmin){
   const conv=s.estado==='convertida';
-  /* Bloque de foto: vista previa + descarga (si la solicitud tiene foto) */
-  const fotoNom = s.foto_nombre || 'referencia.jpg';
+  /* Bloque de archivo adjunto: imagen (vista previa) o documento (tarjeta de descarga) */
+  const fotoNom = s.foto_nombre || 'archivo adjunto';
+  const esImg = (s.foto||'').startsWith('data:image/');
   const fotoBloque = s.foto ? `
     <div style="margin:10px 0;padding:10px;background:#f7f7fb;border-radius:9px;border:1px solid var(--line)">
-      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">📷 Foto de referencia</div>
-      <img src="${s.foto}" alt="${esc(fotoNom)}"
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${esImg?'📷 Foto de referencia':'📄 Documento de referencia'}</div>
+      ${esImg ? `<img src="${s.foto}" alt="${esc(fotoNom)}"
         style="max-width:100%;max-height:260px;border-radius:7px;cursor:pointer;display:block"
         onclick="window.open('${s.foto}','_blank')"
-        title="Clic para ver en tamaño completo">
-      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        title="Clic para ver en tamaño completo">` : ''}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:${esImg?'8px':'0'};flex-wrap:wrap">
         <a href="${s.foto}" download="${esc(fotoNom)}" class="btn btn-sm btn-ghost"
-          style="padding:4px 10px;font-size:12px;text-decoration:none">⬇ Descargar foto</a>
+          style="padding:4px 10px;font-size:12px;text-decoration:none">⬇ Descargar${esImg?' foto':''}</a>
         <span style="font-size:11px;color:var(--muted)">${esc(fotoNom)}</span>
       </div>
     </div>` : '';
@@ -3929,15 +4040,30 @@ function tarjetaSolicitud(s,esAdmin){
       }).join('')}
     </div>` : '';
 
-  /* Comentarios adicionales del gerente */
+  /* Observaciones del gerente */
   const comentBloque = (s.comentarios||'').trim() ? `
     <div style="margin:10px 0;padding:10px;background:#f7f7fb;border-radius:9px;border:1px solid var(--line)">
-      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">💬 Comentarios adicionales</div>
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">💬 Observaciones</div>
       <div style="font-size:13px;white-space:pre-wrap">${esc(s.comentarios)}</div>
     </div>` : '';
 
+  /* Recursos que el gerente marcó como necesarios */
+  let recursosSol={};
+  try{ recursosSol = typeof s.recursos==='object' ? (s.recursos||{}) : JSON.parse(s.recursos||'{}'); }catch(e){ recursosSol={}; }
+  const recEtiquetas = RECURSOS_SOLICITUD.filter(r=>recursosSol[r.key]&&recursosSol[r.key].on)
+    .map(r=>r.label+(recursosSol[r.key].detalle?' ('+esc(recursosSol[r.key].detalle)+')':''));
+  const recursosBloque = recEtiquetas.length ? `
+    <div style="margin:10px 0;padding:10px;background:#f7f7fb;border-radius:9px;border:1px solid var(--line)">
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">🎒 Recursos solicitados</div>
+      <div style="font-size:13px">${recEtiquetas.map(esc).join(' · ')}</div>
+    </div>` : '';
+
+  const puedeSeleccionar = esAdmin && !conv;
+
   return `<div class="sol-card">
     <div class="sol-head">
+      ${puedeSeleccionar ? `<input type="checkbox" class="sol-check-item" data-sol-id="${s.id}"
+        onchange="toggleSelSolicitud(${s.id},this.checked)" style="width:auto;margin-right:4px">` : ''}
       <span class="sid">Solicitud #${s.id}</span>
       <span class="sol-estado est-${s.estado}">${conv?'Convertida en tarea':'Pendiente'}</span>
     </div>
@@ -3950,10 +4076,12 @@ function tarjetaSolicitud(s,esAdmin){
       <div>🎥 Cobertura: <b>${esc(s.cobertura)}</b></div>
       <div>🖨️ Impresión: <b>${esc(s.impresion)}</b></div>
       <div>⚡ Prioridad: <b>${esc(s.prioridad)}</b></div>
+      ${s.fecha_evento ? `<div>🎪 Fecha del evento: <b>${fmtDate(s.fecha_evento)}</b></div>` : ''}
     </div>
     <div class="sol-desc">${esc(s.descripcion)}</div>
     ${linksBloque}
     ${comentBloque}
+    ${recursosBloque}
     ${fotoBloque}
     <div class="sol-foot">
       <span class="sol-quien">Solicitado por ${esc(s.gerente_nombre)} · ${fmtFechaHora(s.fecha)}</span>
@@ -3982,93 +4110,175 @@ async function eliminarSolicitud(solId){
 }
 
 /* El Admin convierte una solicitud en tarea */
+/* Genera el siguiente ID de tarea disponible (SBT-NNN) */
+function siguienteIdTarea(){
+  let maxN=0;
+  TASKS.forEach(t=>{
+    const m=(t.id||'').match(/SBT-(\d+)/);
+    if(m){const n=parseInt(m[1],10);if(n>maxN)maxN=n;}
+  });
+  return 'SBT-'+String(maxN+1).padStart(3,'0');
+}
+
+/* Convierte UNA solicitud (ya cargada, objeto "s") en una tarea nueva.
+   No pide confirmación ni toca la UI de pendientes — eso lo maneja quien
+   llama (convertirEnTarea para una sola, aprobarSeleccionadas para varias),
+   así ambos flujos comparten exactamente la misma lógica de automatización. */
+async function procesarConversionSolicitud(s){
+  const nuevoId=siguienteIdTarea();
+
+  /* Enlaces enviados por el gerente → se agregan como adjuntos tipo "enlace" */
+  const linksArr = (s.links||'').split('\n').map(l=>l.trim()).filter(Boolean)
+    .map(l=>({tipo:'enlace', nombre:/^https?:\/\//.test(l)?l:'https://'+l, data:/^https?:\/\//.test(l)?l:'https://'+l}));
+  /* El archivo adjunto puede ser una imagen o un documento (PDF/Word/Excel);
+     se detecta por el encabezado del data URL para clasificarlo igual que
+     en Adjuntos de la tarea (imagen vs. documento). */
+  const adjuntosSol = s.foto
+    ? [{tipo: s.foto.startsWith('data:image/') ? 'imagen' : 'documento',
+        nombre:(s.foto_nombre||'archivo adjunto'), data:s.foto}]
+    : [];
+
+  /* Responsable automático según el tipo de contenido pedido, buscando en
+     Usuarios a la primera persona activa cuyo Cargo corresponde a ese tipo
+     de trabajo (Flyer/Impresión → Diseñador; Video/Foto/Guion/Cobertura de
+     evento → Videógrafo / Filmaker). Si no hay nadie con ese cargo, o el
+     tipo es "Otro", queda sin asignar para que el administrador lo haga. */
+  const cargoBuscado = TIPO_CARGO_MAP[s.tipo] || null;
+  const asignado = cargoBuscado
+    ? USERS.find(u=>u.activo!==false && (u.cargo||'')===cargoBuscado)
+    : null;
+
+  /* Observaciones: SOLO los comentarios que el propio gerente escribió al
+     enviar la solicitud (contenido real para quien hace el trabajo). El
+     rastro administrativo (de qué solicitud viene, cuándo se envió, etc.)
+     ya NO va acá — va en "Resumen de tarea", que solo ve el Admin. */
+  const obs = (s.comentarios||'').trim();
+
+  /* Recursos: los que el propio gerente marcó al solicitar (drone, voz en
+     off, traslado, otro), más "Cobertura" marcada automáticamente si el
+     tipo de contenido pedido es "Cobertura de evento" o si el gerente
+     respondió "Sí" a "¿Requiere cobertura de evento?". */
+  let recursosSol={};
+  try{ recursosSol = typeof s.recursos==='object' ? (s.recursos||{}) : JSON.parse(s.recursos||'{}'); }catch(e){ recursosSol={}; }
+  if(s.cobertura==='Sí' || s.tipo==='Cobertura de evento'){ recursosSol={...recursosSol, cobertura:{on:true}}; }
+
+  /* Resumen de tarea (solo Admin, no editable): contexto administrativo de
+     dónde vino la tarea, en formato de viñetas para leerlo de un vistazo. */
+  const puntos=[
+    'Generada desde la solicitud #'+s.id+' del gerente <b>'+esc(s.gerente_nombre||'')+'</b>',
+    'Solicitud enviada el '+fmtFechaHora(s.fecha),
+    'Cobertura de evento: '+(s.cobertura||'No')+(s.fecha_evento?' — Fecha del evento: '+fmtDate(s.fecha_evento):''),
+    'Impresión: '+(s.impresion||'No')
+  ];
+  const resumenAdmin='<ul>'+puntos.map(p=>`<li>${p}</li>`).join('')+'</ul>';
+
+  /* armar la tarea con los datos de la solicitud — todo queda automatizado:
+     - Colaborador = el gerente que hizo la solicitud
+     - Servicio/Programa = el que el propio gerente eligió en su solicitud
+     - Responsable = la persona con el cargo correspondiente al tipo de trabajo
+     - Estado pasa de "Sin estado" a "En proceso" automáticamente
+     - Objetivo/Tarea = título en negrita + descripción debajo
+     - Fecha de publicación = la fecha que el gerente pidió
+     - Fecha de programación = el día en que se envió la solicitud original
+       (independiente del día en que el administrador la aprueba)
+     - Fecha de evento = la fecha del evento, si el tipo de contenido lo requería */
+  const tarea={
+    id:nuevoId,
+    fecha_pub:s.fecha_limite||'', hora_pub:'', fecha_evento:s.fecha_evento||'',
+    responsable: asignado ? asignado.nombre : '', colaborador:s.gerente_nombre||'',
+    area:'', tipo:s.tipo||'Otro', plataforma:s.plataforma||'',
+    servicio:s.servicio||'Sin definir',
+    objetivo:'<b>'+esc(s.campana)+'</b><br>'+esc(s.descripcion),
+    prioridad:s.prioridad||'Media', estado:'En proceso',
+    fecha_inicio:(s.fecha||'').slice(0,10),
+    copy:'', observaciones:obs, resumen:resumenAdmin,
+    recursos: recursosSol,
+    adjuntos: [...adjuntosSol, ...linksArr],
+    metricas:{},
+    _upd:{who:CURRENT.nombre,when:new Date()}
+  };
+
+  /* guardar la tarea en Supabase */
+  await saveTaskToDB(tarea, true);
+  TASKS.push(tarea);
+
+  /* marcar la solicitud como convertida */
+  await sbFetch('solicitudes','PATCH',
+    {estado:'convertida', tarea_id:nuevoId},
+    '?id=eq.'+s.id);
+
+  /* registrar la acción */
+  registrarAccion('crear', nuevoId,
+    'Tarea creada desde solicitud #'+s.id+' de '+(s.gerente_nombre||''));
+
+  return nuevoId;
+}
+
 async function convertirEnTarea(solId){
   if(!confirm('¿Convertir esta solicitud en una tarea del sistema?\n\nSe creará una tarea nueva con estos datos y la solicitud quedará marcada como convertida.')){
     return;
   }
   try{
-    /* traer la solicitud */
     const arr=await sbFetch('solicitudes','GET',null,'?id=eq.'+solId);
     if(!arr||!arr[0]){alert('No se encontró la solicitud.');return;}
-    const s=arr[0];
-
-    /* generar ID de tarea nuevo */
-    let maxN=0;
-    TASKS.forEach(t=>{
-      const m=(t.id||'').match(/SBT-(\d+)/);
-      if(m){const n=parseInt(m[1],10);if(n>maxN)maxN=n;}
-    });
-    const nuevoId='SBT-'+String(maxN+1).padStart(3,'0');
-
-    /* Enlaces enviados por el gerente → se agregan como adjuntos tipo "enlace" */
-    const linksArr = (s.links||'').split('\n').map(l=>l.trim()).filter(Boolean)
-      .map(l=>({tipo:'enlace', nombre:/^https?:\/\//.test(l)?l:'https://'+l, data:/^https?:\/\//.test(l)?l:'https://'+l}));
-    const adjuntosSol = s.foto ? [{tipo:'imagen', nombre:(s.foto_nombre||'referencia.jpg'), data:s.foto}] : [];
-
-    /* Responsable automático según el tipo de contenido pedido, buscando en
-       Usuarios a la primera persona activa cuyo Cargo corresponde a ese tipo
-       de trabajo (Flyer/Impresión → Diseñador; Video/Foto/Guion/Cobertura de
-       evento → Videógrafo / Filmaker). Si no hay nadie con ese cargo, o el
-       tipo es "Otro", queda sin asignar para que el administrador lo haga. */
-    const cargoBuscado = TIPO_CARGO_MAP[s.tipo] || null;
-    const asignado = cargoBuscado
-      ? USERS.find(u=>u.activo!==false && (u.cargo||'')===cargoBuscado)
-      : null;
-
-    /* Observaciones: SOLO los comentarios que el propio gerente escribió al
-       enviar la solicitud (contenido real para quien hace el trabajo). El
-       rastro administrativo (de qué solicitud viene, cuándo se envió, etc.)
-       ya NO va acá — va en "Resumen de tarea", que solo ve el Admin. */
-    const obs = (s.comentarios||'').trim();
-
-    /* Resumen de tarea (solo Admin): contexto administrativo/de auditoría. */
-    const resumenAdmin='Generada desde la solicitud #'+s.id+' del gerente '+(s.gerente_nombre||'')+
-      '. Solicitud enviada el '+fmtFechaHora(s.fecha)+
-      '. Cobertura: '+s.cobertura+'. Impresión: '+s.impresion+'.';
-
-    /* armar la tarea con los datos de la solicitud — todo queda automatizado:
-       - Colaborador = el gerente que hizo la solicitud
-       - Servicio/Programa = el que el propio gerente eligió en su solicitud
-       - Responsable = la persona con el cargo correspondiente al tipo de trabajo
-       - Estado pasa de "Sin estado" a "En proceso" automáticamente
-       - Objetivo/Tarea = título en negrita + descripción debajo
-       - Fecha de publicación = la fecha que el gerente pidió
-       - Fecha de programación = el día en que se envió la solicitud original
-         (independiente del día en que el administrador la aprueba) */
-    const tarea={
-      id:nuevoId,
-      fecha_pub:s.fecha_limite||'', hora_pub:'',
-      responsable: asignado ? asignado.nombre : '', colaborador:s.gerente_nombre||'',
-      area:'', tipo:s.tipo||'Otro', plataforma:s.plataforma||'',
-      servicio:s.servicio||'Sin definir',
-      objetivo:'<b>'+esc(s.campana)+'</b><br>'+esc(s.descripcion),
-      prioridad:s.prioridad||'Media', estado:'En proceso',
-      fecha_inicio:(s.fecha||'').slice(0,10),
-      copy:'', observaciones:obs, resumen:resumenAdmin,
-      recursos: s.cobertura==='Sí'?{cobertura:{on:true}}:{},
-      adjuntos: [...adjuntosSol, ...linksArr],
-      metricas:{},
-      _upd:{who:CURRENT.nombre,when:new Date()}
-    };
-
-    /* guardar la tarea en Supabase */
-    await saveTaskToDB(tarea, true);
-    TASKS.push(tarea);
-
-    /* marcar la solicitud como convertida */
-    await sbFetch('solicitudes','PATCH',
-      {estado:'convertida', tarea_id:nuevoId},
-      '?id=eq.'+solId);
-
-    /* registrar la acción */
-    registrarAccion('crear', nuevoId,
-      'Tarea creada desde solicitud #'+s.id+' de '+(s.gerente_nombre||''));
-
+    const nuevoId=await procesarConversionSolicitud(arr[0]);
     alert('✅ Solicitud convertida en la tarea '+nuevoId+'.\n\nYa puedes asignarle un responsable en "Todas las tareas".');
     renderPendientes();
     actualizarBadgePend();
   }catch(err){
     alert('No se pudo convertir la solicitud.\n'+err.message);
+  }
+}
+
+/* ---- Aprobación masiva de solicitudes pendientes ---- */
+let solsSeleccionadas = new Set();
+function toggleSelSolicitud(id, checked){
+  if(checked) solsSeleccionadas.add(id); else solsSeleccionadas.delete(id);
+  actualizarBarraSeleccion();
+}
+function toggleSelTodasSolicitudes(checked){
+  document.querySelectorAll('.sol-check-item').forEach(cb=>{
+    cb.checked=checked;
+    const id=parseInt(cb.dataset.solId,10);
+    if(checked) solsSeleccionadas.add(id); else solsSeleccionadas.delete(id);
+  });
+  actualizarBarraSeleccion();
+}
+function actualizarBarraSeleccion(){
+  const bar=document.getElementById('pendSelBar');
+  const cnt=document.getElementById('pendSelCount');
+  if(!bar) return;
+  if(solsSeleccionadas.size>0){
+    bar.style.display='flex';
+    cnt.textContent=solsSeleccionadas.size+' seleccionada'+(solsSeleccionadas.size===1?'':'s');
+  } else {
+    bar.style.display='none';
+  }
+}
+async function aprobarSeleccionadas(){
+  const ids=[...solsSeleccionadas];
+  if(!ids.length) return;
+  if(!confirm('¿Aprobar y convertir '+ids.length+' solicitud'+(ids.length===1?'':'es')+' en tareas del sistema?\n\nCada una se creará como una tarea nueva y quedará marcada como convertida.')){
+    return;
+  }
+  let ok=0; const fallos=[];
+  for(const id of ids){
+    try{
+      const arr=await sbFetch('solicitudes','GET',null,'?id=eq.'+id);
+      if(!arr||!arr[0]){ fallos.push('#'+id+': no se encontró'); continue; }
+      await procesarConversionSolicitud(arr[0]);
+      ok++;
+    }catch(err){
+      fallos.push('#'+id+': '+err.message);
+    }
+  }
+  solsSeleccionadas.clear();
+  renderPendientes();
+  actualizarBadgePend();
+  if(fallos.length){
+    alert('Se aprobaron '+ok+' de '+ids.length+' solicitudes.\n\nFallaron:\n'+fallos.join('\n'));
+  } else {
+    alert('✅ Se aprobaron '+ok+' solicitud'+(ok===1?'':'es')+' correctamente.');
   }
 }
 
