@@ -13,8 +13,13 @@
     --ink:#0f172a; --paper:#f3f6fa; --card:#ffffff;
     --moss:#0a3d62; --moss-d:#082c47; --gold:#2f7fe0; --clay:#c2452f;
     --line:#dbe3ec; --muted:#64748b;
-    --st-proceso:#2f7fe0; --st-finalizado:#0a3d62;
-    --st-publicado:#38bdf8; --st-programado:#6366f1; --st-sin:#94a3b8; --st-norealizado:#c2452f;
+    /* Colores de estado — usados en tablero, lista, calendario y las leyendas
+       de Calendario y Panel de control (todas leen estas mismas variables,
+       así que cambiarlas aquí actualiza todo el sistema a la vez):
+       En proceso = celeste, Diseñado = naranja, Programado = morado,
+       Publicado/Finalizado = verde, No realizado = rojo. */
+    --st-proceso:#38bdf8; --st-finalizado:#f97316;
+    --st-publicado:#16a34a; --st-programado:#7c3aed; --st-sin:#94a3b8; --st-norealizado:#dc2626;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   /* Re-habilitar selección donde es necesaria para trabajar (escribir, copiar texto de tareas) */
@@ -2916,7 +2921,17 @@ function renderProximosEventos(elId){
     }).join('')}</div>
   </div>`;
 }
+let efeMostrarPasadas=false;
+function toggleEfePasadas(){
+  efeMostrarPasadas=!efeMostrarPasadas;
+  renderEfe();
+}
 function renderEfe(){
+  /* "sorted" es la lista completa (pasadas incluidas), ordenada por fecha.
+     delEfe(i) recalcula esta misma lista y usa el índice "i" para saber cuál
+     borrar, así que aquí SIEMPRE se debe pasar el índice dentro de "sorted"
+     completa — nunca el índice dentro de la lista ya filtrada que se
+     muestra en pantalla — o se borraría la efeméride equivocada. */
   const sorted=EFEMERIDES.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const soon=sorted.filter(e=>{const d=daysUntil(e.fecha);return d>=0&&d<=7;});
   /* Al ver la pestaña Efemérides, se marca como visto y desaparece el contador */
@@ -2929,7 +2944,24 @@ function renderEfe(){
   const meses=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
   const list=document.getElementById('efeList');
   if(!sorted.length){list.innerHTML=`<div class="empty"><div class="big">📅</div>Sin efemérides registradas.</div>`;return;}
-  list.innerHTML=sorted.map((e,i)=>{
+
+  /* Las que ya pasaron se ocultan automáticamente — solo queda a la vista lo
+     que sigue. El dato no se borra, solo se deja de mostrar por defecto; hay
+     un botón para volver a verlas si hace falta (por ejemplo, para borrar
+     alguna vieja que ya no sirve). */
+  const pasadasCount = sorted.filter(e=>daysUntil(e.fecha)<0).length;
+  const visibles = efeMostrarPasadas ? sorted : sorted.filter(e=>daysUntil(e.fecha)>=0);
+  const toggleHtml = pasadasCount>0 ? `<button class="btn btn-sm btn-ghost" style="margin-bottom:10px"
+      onclick="toggleEfePasadas()">${efeMostrarPasadas
+        ? '🔼 Ocultar las que ya pasaron'
+        : '🕐 Ver '+pasadasCount+' que ya pasaron'}</button>` : '';
+
+  if(!visibles.length){
+    list.innerHTML=toggleHtml+`<div class="empty"><div class="big">📅</div>Sin efemérides próximas.</div>`;
+    return;
+  }
+  list.innerHTML=toggleHtml+visibles.map((e)=>{
+    const i=sorted.indexOf(e);
     const d=daysUntil(e.fecha);
     const pieces=e.fecha.split('-');
     const soonCls=(d>=0&&d<=7)?'efe-soon':'';
