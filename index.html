@@ -200,6 +200,7 @@
     padding:10px 14px;margin:-6px 0 16px;font-size:13px;color:var(--ink)}
   #btnDelSel{background:var(--clay)}
   #btnDelSel:disabled{opacity:.4;cursor:not-allowed}
+  #btnFinSel:disabled{opacity:.4;cursor:not-allowed}
   #btnSelect.on{background:var(--moss);color:#fff;border-color:var(--moss)}
   .card-check{width:17px;height:17px;accent-color:var(--moss);cursor:pointer;
     flex-shrink:0;margin-right:2px}
@@ -238,10 +239,19 @@
   .kcard-foot .avatar{width:20px;height:20px;font-size:10px}
   .kcard-foot .svc{margin-left:auto;background:#e9e8f0;padding:2px 7px;
     border-radius:5px;font-size:10.5px;color:#5d6058}
+  .kcard-date{white-space:nowrap;flex-shrink:0}
   .kcard-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
   .rtag{font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:5px;
     background:#e7eef0;color:#3a6373}
+  .rtag-evento{background:#fde8d2;color:#8a5a1c}
   .kempty{text-align:center;padding:24px 8px;color:#a8a89e;font-size:12px}
+  .btn-fin-rapido{margin-top:8px;width:100%;background:var(--st-publicado);color:#fff;
+    border:none;border-radius:7px;padding:6px 8px;font-size:11.5px;font-weight:700;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;
+    transition:opacity .1s}
+  .btn-fin-rapido:hover{opacity:.85}
+  .btn-fin-rapido:active{opacity:.7}
+  .task-fin-rapido{margin-top:2px}
   @media(max-width:880px){.kanban{grid-template-columns:1fr 1fr}}
   @media(max-width:540px){.kanban{grid-template-columns:1fr}}
 
@@ -379,6 +389,28 @@
   .alert-banner{background:var(--gold);color:#fff;border-radius:11px;
     padding:12px 16px;margin-bottom:18px;font-size:13.5px;font-weight:600;
     display:flex;align-items:center;gap:10px}
+
+  /* ---------- PRÓXIMOS EVENTOS / COBERTURAS PENDIENTES ---------- */
+  .prox-panel{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:16px 18px;margin-bottom:18px}
+  .prox-head{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14.5px;
+    margin-bottom:12px;display:flex;align-items:center;gap:6px}
+  .prox-list{display:flex;flex-direction:column;gap:8px}
+  .prox-card{display:flex;align-items:center;gap:12px;background:#f7f7fb;
+    border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;
+    transition:transform .1s}
+  .prox-card:hover{transform:translateY(-1px)}
+  .prox-card.prox-soon{background:#f6e9d3;border-color:#e3c98c}
+  .prox-card.prox-venc{background:#f8e2e2;border-color:#e3a3a3}
+  .prox-date{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:12.5px;
+    color:var(--moss);min-width:76px;flex-shrink:0}
+  .prox-body{flex:1;min-width:0}
+  .prox-title{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .prox-meta{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;
+    align-items:center;gap:6px;flex-wrap:wrap}
+  .prox-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;
+    background:#e6e5ef;color:#5d6058;flex-shrink:0;white-space:nowrap}
 
   /* ---------- PANEL ADMIN ---------- */
   .chart-wrap{background:var(--card);border:1px solid var(--line);
@@ -687,6 +719,7 @@
         <span id="selectCount">0 tareas seleccionadas</span>
         <button class="btn btn-sm btn-ghost" onclick="seleccionarTodoVisible()">Seleccionar / quitar todo</button>
         <div class="spacer"></div>
+        <button class="btn btn-sm" id="btnFinSel" onclick="finalizarSeleccionadas()" disabled>✅ Marcar Publicado/Finalizado</button>
         <button class="btn btn-sm" id="btnDelSel" onclick="eliminarSeleccionadas()" disabled>🗑 Eliminar seleccionadas</button>
       </div>
       <div class="kanban" id="kanban"></div>
@@ -891,6 +924,7 @@
         <h2>Calendario de tareas</h2>
         <p>Todas las tareas ubicadas por su fecha de publicación. Cada color indica el estado. Haz clic en una tarea para abrirla.</p>
       </div>
+      <div id="proxEventosCal"></div>
       <div class="chart-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -979,13 +1013,17 @@
           <div class="field"><label>Fecha de publicación</label>
             <input type="date" id="solFecha"></div>
         </div>
-        <!-- Fecha del evento: solo aparece cuando el tipo de contenido es "Cobertura
-             de evento". Es independiente de la fecha de publicación: la fecha de
-             publicación es cuándo sale el flyer/post, la del evento es cuándo ocurre
-             el evento en sí. -->
-        <div class="field" id="solFechaEventoWrap" style="display:none">
-          <label>Fecha del evento</label>
-          <input type="date" id="solFechaEvento"></div>
+        <!-- Fecha/hora/lugar del evento: solo aparecen cuando el tipo de contenido es
+             "Cobertura de evento". Son independientes de la fecha de publicación: la
+             fecha de publicación es cuándo sale el flyer/post, las del evento son
+             cuándo y dónde ocurre el evento en sí. -->
+        <div class="field-row" id="solFechaEventoWrap" style="display:none">
+          <div class="field"><label>Fecha del evento</label><input type="date" id="solFechaEvento"></div>
+          <div class="field"><label>Hora del evento</label><input type="time" id="solHoraEvento"></div>
+        </div>
+        <div class="field" id="solLugarEventoWrap" style="display:none">
+          <label>Lugar del evento</label>
+          <input id="solLugarEvento" placeholder="Ej: Local central SBT, Jr. Ejemplo 123"></div>
         <div class="field-row">
           <div class="field"><label>¿Requiere cobertura de evento?</label>
             <select id="solCobertura"><option>No</option><option>Sí</option></select></div>
@@ -1083,6 +1121,7 @@
           <button class="btn btn-sm" onclick="aprobarSeleccionadas()">✅ Aprobar seleccionadas</button>
         </div>
       </div>
+      <div id="proxEventosPend"></div>
       <div id="pendientesLista"></div>
     </div>
   </div>
@@ -1168,6 +1207,10 @@
       <div class="field-row">
         <div class="field"><label>Plataforma</label><input id="mPlataforma" placeholder="Facebook, Instagram, TikTok"></div>
         <div class="field"><label>Fecha del evento (si aplica)</label><input type="date" id="mFechaEvento"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Hora del evento (si aplica)</label><input type="time" id="mHoraEvento"></div>
+        <div class="field"><label>Lugar del evento (si aplica)</label><input id="mLugarEvento" placeholder="Ej: Local central SBT"></div>
       </div>
 
       <!-- RECURSOS REQUERIDOS -->
@@ -1282,6 +1325,7 @@ function taskFromRow(t) {
     plataforma:t.plataforma||'', servicio:t.servicio||'', objetivo:t.objetivo||'',
     prioridad:t.prioridad||'Media', estado:t.estado||'Sin estado',
     fecha_inicio:t.fecha_inicio||'', fecha_evento:t.fecha_evento||'',
+    hora_evento:t.hora_evento||'', lugar_evento:t.lugar_evento||'',
     copy:t.copy||'', observaciones:t.observaciones||'', resumen:t.resumen||'',
     recursos: typeof t.recursos==='object' ? t.recursos : JSON.parse(t.recursos||'{}'),
     adjuntos: Array.isArray(t.adjuntos) ? t.adjuntos : JSON.parse(t.adjuntos||'[]'),
@@ -1419,7 +1463,16 @@ function mostrarCarga(v) {
   document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none';
 }
 
-/* ---- GUARDAR TAREA ---- */
+/* ---- GUARDAR TAREA ----
+   IMPORTANTE: esta función YA NO atrapa sus propios errores (antes lo hacía
+   con un alert genérico "el cambio se aplicó localmente pero no se guardó
+   en la nube", sin decir POR QUÉ, y sin avisar a quien llamó que el guardado
+   había fallado — así que el modal se cerraba y todo se veía "guardado"
+   aunque en Supabase no hubiera pasado nada, y al recargar la página el
+   cambio desaparecía). Ahora el error se propaga hacia quien llama, para
+   que pueda mostrar el motivo real (por ejemplo, una columna que todavía no
+   existe en Supabase porque falta correr una migración) y decidir si
+   revertir el cambio local. */
 async function saveTaskToDB(data, isNew) {
   const row = {
     id:data.id, fecha_pub:data.fecha_pub||'', hora_pub:data.hora_pub||'', responsable:data.responsable||'',
@@ -1427,6 +1480,7 @@ async function saveTaskToDB(data, isNew) {
     plataforma:data.plataforma||'', servicio:data.servicio||'', objetivo:data.objetivo||'',
     prioridad:data.prioridad||'Media', estado:data.estado||'Sin estado',
     fecha_inicio:data.fecha_inicio||'', fecha_evento:data.fecha_evento||'',
+    hora_evento:data.hora_evento||'', lugar_evento:data.lugar_evento||'',
     copy:data.copy||'', observaciones:data.observaciones||'', resumen:data.resumen||'',
     recursos:JSON.stringify(data.recursos||{}),
     adjuntos:JSON.stringify(data.adjuntos||[]),
@@ -1434,13 +1488,8 @@ async function saveTaskToDB(data, isNew) {
     upd_who: CURRENT ? CURRENT.nombre : '',
     upd_when: new Date().toISOString()
   };
-  try {
-    if (isNew) { await sbFetch('tareas','POST',row); }
-    else { await sbFetch('tareas','PATCH',row,'?id=eq.'+encodeURIComponent(data.id)); }
-  } catch(err) {
-    console.error('Error guardando tarea:', err);
-    alert('⚠️ El cambio se aplicó localmente pero no se guardó en la nube.');
-  }
+  if (isNew) { await sbFetch('tareas','POST',row); }
+  else { await sbFetch('tareas','PATCH',row,'?id=eq.'+encodeURIComponent(data.id)); }
 }
 
 async function saveMetricToDB(taskId, metricas) {
@@ -1981,16 +2030,21 @@ function kCard(t,color){
   const ini=(t.responsable||'?').charAt(0).toUpperCase();
   const pri=t.prioridad||'Media';
   const colab=t.colaborador?`<span class="rtag" style="background:#e8e1f0;color:#4a3a6a">👤 ${esc(t.colaborador)}</span>`:'';
+  const eventoTag=t.fecha_evento?`<span class="rtag rtag-evento">🎪 ${fmtDate(t.fecha_evento)}</span>`:'';
   const sel=selectMode&&selectedTasks.has(t.id);
   const clickAttr=selectMode?`onclick="toggleSelectTask('${t.id}',event)"`:`onclick="openTask('${t.id}')"`;
   const check=selectMode?`<input type="checkbox" class="card-check" ${sel?'checked':''} onclick="toggleSelectTask('${t.id}',event)">`:'';
+  const puedeFin=!selectMode && t.estado!=='Publicado/Finalizado' && puedeFinalizarRapido(t);
+  const btnFin=puedeFin?`<button type="button" class="btn-fin-rapido" onclick="finalizarRapido('${t.id}',event)" title="Marcar como Publicado/Finalizado">✅ Finalizar</button>`:'';
   return `<div class="kcard${sel?' kcard-selected':''}" style="border-left-color:${color}" ${clickAttr}>
     <div class="kcard-id">${check}${t.id}<span class="pri pri-dot-${pri}">${pri}</span></div>
     <h4>${plano(t.objetivo)?esc(plano(t.objetivo)):'<span style=\"color:#bbb\">Sin objetivo</span>'}</h4>
-    ${(t.colaborador||recTags(t))?`<div class="kcard-tags">${colab}${recTags(t).replace('<div class="kcard-tags">','').replace('</div>','')}</div>`:''}
+    ${(t.colaborador||recTags(t)||eventoTag)?`<div class="kcard-tags">${colab}${eventoTag}${recTags(t).replace('<div class="kcard-tags">','').replace('</div>','')}</div>`:''}
     <div class="kcard-foot"><span class="avatar">${ini}</span>
       <span>${esc(t.responsable)||'Sin asignar'}</span>
-      <span class="svc">${esc(t.servicio)}</span></div></div>`;
+      <span class="kcard-date">📅 ${fmtDate(t.fecha_pub)}</span>
+      <span class="svc">${esc(t.servicio)}</span></div>
+    ${btnFin}</div>`;
 }
 function renderList(list){
   const grid=document.getElementById('grid');
@@ -2001,16 +2055,20 @@ function renderList(list){
     const sel=selectMode&&selectedTasks.has(t.id);
     const clickAttr=selectMode?`onclick="toggleSelectTask('${t.id}',event)"`:`onclick="openTask('${t.id}')"`;
     const check=selectMode?`<input type="checkbox" class="card-check" ${sel?'checked':''} onclick="toggleSelectTask('${t.id}',event)">`:'';
+    const eventoChip=t.fecha_evento?`<span class="chip" style="background:#fde8d2;color:#8a5a1c">🎪 ${fmtDate(t.fecha_evento)}</span>`:'';
+    const puedeFin=!selectMode && t.estado!=='Publicado/Finalizado' && puedeFinalizarRapido(t);
+    const btnFin=puedeFin?`<button type="button" class="btn-fin-rapido task-fin-rapido" onclick="finalizarRapido('${t.id}',event)" title="Marcar como Publicado/Finalizado">✅ Finalizar</button>`:'';
     return `<div class="task${sel?' task-selected':''}" ${clickAttr}>
       <div class="task-top">${check}<span class="task-id">${t.id}</span>
         <span class="badge" style="background:${ST_COLOR[t.estado]||'#999'}">${t.estado}</span></div>
       <h3>${plano(t.objetivo)?esc(plano(t.objetivo)):'<span style=\"color:#aaa\">Sin objetivo</span>'}</h3>
       <div class="task-meta"><span class="chip">${esc(t.servicio)}</span>
         <span class="chip">${esc(t.tipo)}</span>
-        <span class="chip pri-${t.prioridad}">${t.prioridad}</span></div>
+        <span class="chip pri-${t.prioridad}">${t.prioridad}</span>${eventoChip}</div>
       <div class="task-foot"><span class="avatar">${ini}</span>
         <span>${esc(t.responsable)||'Sin asignar'}</span>
-        <span style="margin-left:auto">${fmtDate(t.fecha_inicio)}</span></div></div>`;
+        <span style="margin-left:auto">📅 ${fmtDate(t.fecha_pub)}</span></div>
+      ${btnFin}</div>`;
   }).join('');
 }
 /* ---------- Selección múltiple / eliminación masiva de tareas ---------- */
@@ -2047,6 +2105,75 @@ function updateSelectBar(){
   if(cnt) cnt.textContent=selectedTasks.size+' tarea'+(selectedTasks.size===1?'':'s')+' seleccionada'+(selectedTasks.size===1?'':'s');
   const del=document.getElementById('btnDelSel');
   if(del) del.disabled=selectedTasks.size===0;
+  const fin=document.getElementById('btnFinSel');
+  if(fin) fin.disabled=selectedTasks.size===0;
+}
+/* ---------- Marcar como "Publicado/Finalizado" sin abrir el modal ----------
+   Respeta los mismos permisos que ya existen para cambiar el estado desde
+   el modal: Admin y Community pueden hacerlo en cualquier tarea; Editor
+   solo en las tareas asignadas a sí mismo; Lector no puede. */
+function puedeFinalizarRapido(t){
+  if(!CURRENT || !t) return false;
+  if(CURRENT.rol==='Admin' || CURRENT.rol==='Community') return true;
+  if(CURRENT.rol==='Editor'){
+    const miNombre=(CURRENT.nombre||'').replace(' (Admin)','').trim().toLowerCase();
+    return (t.responsable||'').trim().toLowerCase()===miNombre;
+  }
+  return false;
+}
+async function finalizarRapido(id,ev){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  const t=TASKS.find(x=>x.id===id);
+  if(!t || !puedeFinalizarRapido(t) || t.estado==='Publicado/Finalizado') return;
+  const snapshot=JSON.parse(JSON.stringify(t));
+  const estadoAnterior=t.estado;
+  t.estado='Publicado/Finalizado';
+  t._upd={who:CURRENT.nombre,when:new Date()};
+  render();
+  try{
+    await saveTaskToDB(t, false);
+  }catch(err){
+    const idx=TASKS.findIndex(x=>x.id===id);
+    if(idx>=0) TASKS[idx]=snapshot;
+    render();
+    alert('❌ No se pudo marcar la tarea como Publicado/Finalizado. El cambio se revirtió.\n\nMotivo: '+err.message+
+      '\n\nSi el motivo menciona una columna que no existe, es probable que falte correr una migración SQL pendiente en Supabase.');
+    return;
+  }
+  registrarAccion('estado', id, 'De "'+estadoAnterior+'" a "Publicado/Finalizado" (botón rápido)');
+  render();
+}
+/* ---------- Marcar varias tareas seleccionadas como "Publicado/Finalizado" ---------- */
+async function finalizarSeleccionadas(){
+  if(CURRENT.rol!=='Admin' || selectedTasks.size===0) return;
+  const ids=[...selectedTasks];
+  if(!confirm('¿Marcar '+ids.length+' tarea'+(ids.length===1?'':'s')+' como "Publicado/Finalizado"?')){
+    return;
+  }
+  const fallidas=[];
+  for(const id of ids){
+    const t=TASKS.find(x=>x.id===id);
+    if(!t || t.estado==='Publicado/Finalizado') continue;
+    const snapshot=JSON.parse(JSON.stringify(t));
+    const estadoAnterior=t.estado;
+    t.estado='Publicado/Finalizado';
+    t._upd={who:CURRENT.nombre,when:new Date()};
+    try{
+      await saveTaskToDB(t, false);
+      registrarAccion('estado', id, 'De "'+estadoAnterior+'" a "Publicado/Finalizado" (aprobación masiva)');
+    }catch(err){
+      const idx=TASKS.findIndex(x=>x.id===id);
+      if(idx>=0) TASKS[idx]=snapshot;
+      fallidas.push(id+': '+err.message);
+    }
+  }
+  selectedTasks.clear();
+  updateSelectBar();
+  render();
+  if(fallidas.length){
+    alert('Algunas tareas no se pudieron actualizar:\n\n'+fallidas.join('\n')+
+      '\n\nSi el motivo menciona una columna que no existe, es probable que falte correr una migración SQL pendiente en Supabase.');
+  }
 }
 async function eliminarSeleccionadas(){
   if(CURRENT.rol!=='Admin' || selectedTasks.size===0) return;
@@ -2101,7 +2228,7 @@ function openNew(){
   const n=TASKS.length+1;
   fillModal({id:'SBT-'+String(n).padStart(3,'0'),estado:'Sin estado',objetivo:'',
     responsable:CURRENT.nombre.replace(' (Admin)','').trim(),colaborador:'',prioridad:'Media',
-    servicio:'SBT',tipo:'Flyer',fecha_inicio:'',fecha_pub:'',hora_pub:'',fecha_evento:'',plataforma:'',copy:'',observaciones:'',resumen:'',
+    servicio:'SBT',tipo:'Flyer',fecha_inicio:'',fecha_pub:'',hora_pub:'',fecha_evento:'',hora_evento:'',lugar_evento:'',plataforma:'',copy:'',observaciones:'',resumen:'',
     recursos:{},adjuntos:[],metricas:{}},true);
 }
 /* Devuelve la fecha solo si viene en formato ISO (yyyy-mm-dd), para no romper
@@ -2145,6 +2272,8 @@ function fillModal(t,isNew){
   document.getElementById('mFechaPub').value=soloFechaISO(t.fecha_pub);
   document.getElementById('mHoraPub').value=t.hora_pub||'';
   document.getElementById('mFechaEvento').value=soloFechaISO(t.fecha_evento);
+  document.getElementById('mHoraEvento').value=t.hora_evento||'';
+  document.getElementById('mLugarEvento').value=t.lugar_evento||'';
   document.getElementById('mPlataforma').value=t.plataforma||'';
   document.getElementById('mObs').value=t.observaciones||'';
   document.getElementById('mResumen').innerHTML=t.resumen||'<span style="color:var(--muted)">Sin resumen — esta tarea no viene de una solicitud aprobada.</span>';
@@ -2176,7 +2305,7 @@ function applyPermissions(){
      controla (más abajo, con resumenWrap). mFechaEvento sí se bloquea igual
      que el resto de campos según el rol. */
   const allFields=['mEstado','mObjetivo','mResponsable','mColaborador','mServicio',
-    'mPrioridad','mTipo','mFechaIni','mFechaPub','mHoraPub','mFechaEvento','mPlataforma','mCopy','mObs'];
+    'mPrioridad','mTipo','mFechaIni','mFechaPub','mHoraPub','mFechaEvento','mHoraEvento','mLugarEvento','mPlataforma','mCopy','mObs'];
   const setRO=(id,ro)=>{const el=document.getElementById(id);if(!el)return;
     if(el.tagName==='SELECT'){el.disabled=ro;el.classList.toggle('ro',ro);}
     else if(el.hasAttribute('contenteditable')){el.contentEditable=!ro;el.classList.toggle('ro',ro);
@@ -2333,6 +2462,8 @@ async function saveTask(){
     fecha_pub:document.getElementById('mFechaPub').value,
     hora_pub:document.getElementById('mHoraPub').value,
     fecha_evento:document.getElementById('mFechaEvento').value,
+    hora_evento:document.getElementById('mHoraEvento').value,
+    lugar_evento:document.getElementById('mLugarEvento').value.trim(),
     plataforma:document.getElementById('mPlataforma').value,
     copy:document.getElementById('mCopy').value,
     observaciones:document.getElementById('mObs').value,
@@ -2342,6 +2473,11 @@ async function saveTask(){
     recursos:collectRec(),adjuntos:draftAttach.slice()
   };
   let _estadoAnterior=null, _accion='editar';
+  /* Antes de tocar nada: guarda una copia exacta de cómo estaba la tarea,
+     para poder revertir el cambio local si el guardado en Supabase falla
+     (si no se revierte, la pantalla muestra el cambio como aplicado hasta
+     que se recarga la página, y ahí desaparece — justo el problema reportado). */
+  const _snapshot = editingId ? JSON.parse(JSON.stringify(TASKS.find(x=>x.id===editingId)||null)) : null;
   if(editingId){
     const t=TASKS.find(x=>x.id===editingId);
     _estadoAnterior=t?t.estado:null;
@@ -2368,7 +2504,24 @@ async function saveTask(){
   }
   const _isNew = !editingId;
   const _td = _isNew ? TASKS[TASKS.length-1] : TASKS.find(x=>x.id===editingId);
-  if(_td) await saveTaskToDB(_td, _isNew);
+
+  const btnSave=document.getElementById('btnSave');
+  const _btnSaveTxt = btnSave ? btnSave.textContent : 'Guardar cambios';
+  if(btnSave){btnSave.disabled=true;btnSave.textContent='Guardando…';}
+  try{
+    if(_td) await saveTaskToDB(_td, _isNew);
+  }catch(err){
+    /* Revertir el cambio local: si era una tarea nueva, quitarla; si era una
+       edición, devolverla a como estaba antes de tocar nada. El modal se
+       queda abierto para que puedas reintentar sin perder lo que escribiste. */
+    if(_isNew){ TASKS.pop(); }
+    else if(_snapshot){ const idx=TASKS.findIndex(x=>x.id===editingId); if(idx>=0) TASKS[idx]=_snapshot; }
+    if(btnSave){btnSave.disabled=false;btnSave.textContent=_btnSaveTxt;}
+    alert('❌ No se pudo guardar en la nube. El cambio NO se aplicó — se revirtió para que no se pierda ni se muestre algo que en realidad no se guardó.\n\nMotivo: '+err.message+
+      '\n\nSi el motivo menciona una columna que no existe, es probable que falte correr una migración SQL pendiente en Supabase.');
+    return;
+  }
+  if(btnSave){btnSave.disabled=false;btnSave.textContent=_btnSaveTxt;}
 
   /* Registrar la acción en el historial */
   if(_accion==='crear'){
@@ -2726,6 +2879,42 @@ function daysUntil(d){
   const today=new Date();today.setHours(0,0,0,0);
   const target=new Date(d+'T00:00:00');
   return Math.round((target-today)/86400000);
+}
+
+/* ===================== PRÓXIMOS EVENTOS / COBERTURAS PENDIENTES =====================
+   Recordatorio visual (arriba de Pendientes y dentro de Calendario) de las tareas que
+   tienen "Fecha del evento" y todavía no están Publicado/Finalizado ni No realizado.
+   Existe para que, por ejemplo, un flyer publicado hoy que anuncia un evento más
+   adelante (con cobertura pendiente) no se pierda de vista solo porque el flyer en
+   sí ya salió — el evento real todavía está por venir. */
+function renderProximosEventos(elId){
+  const el=document.getElementById(elId);
+  if(!el) return;
+  const items=TASKS.filter(t=>t.fecha_evento && t.estado!=='Publicado/Finalizado' && t.estado!=='No realizado')
+    .map(t=>({t,d:daysUntil(t.fecha_evento)}))
+    .filter(x=>x.d<=21)
+    .sort((a,b)=>a.d-b.d);
+  if(!items.length){ el.innerHTML=''; return; }
+  el.innerHTML=`<div class="prox-panel">
+    <div class="prox-head">🎪 Próximos eventos / coberturas pendientes</div>
+    <div class="prox-list">${items.map(({t,d})=>{
+      const venc=d<0;
+      const cls=venc?'prox-venc':(d<=3?'prox-soon':'');
+      const badge = venc ? `<span class="prox-badge" style="background:#e7a3a3;color:#6b1717">Venció hace ${Math.abs(d)}d</span>`
+        : d===0 ? `<span class="prox-badge" style="background:var(--clay);color:#fff">¡HOY!</span>`
+        : `<span class="prox-badge">En ${d} día${d===1?'':'s'}</span>`;
+      const horaLugar=[t.hora_evento,t.lugar_evento].filter(Boolean).join(' · ');
+      return `<div class="prox-card ${cls}" onclick="openTask('${t.id}')">
+        <div class="prox-date">${fmtDate(t.fecha_evento)}</div>
+        <div class="prox-body">
+          <div class="prox-title">${esc(plano(t.objetivo))||'Sin objetivo'}</div>
+          <div class="prox-meta">${esc(t.responsable)||'Sin asignar'}${horaLugar?' · '+esc(horaLugar):''}
+            <span class="badge" style="background:${ST_COLOR[t.estado]||'#999'}">${t.estado}</span></div>
+        </div>
+        ${badge}
+      </div>`;
+    }).join('')}</div>
+  </div>`;
 }
 function renderEfe(){
   const sorted=EFEMERIDES.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
@@ -3240,6 +3429,7 @@ function calTabHoy(){
   renderCalendarioTab();
 }
 function renderCalendarioTab(){
+  renderProximosEventos('proxEventosCal');
   const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
     'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const DIAS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -3862,7 +4052,8 @@ function collectSolRecursos(){
 function onSolTipoChange(){
   const tipo=document.getElementById('solTipo').value;
   const esCobertura = tipo==='Cobertura de evento';
-  document.getElementById('solFechaEventoWrap').style.display = esCobertura ? 'block' : 'none';
+  document.getElementById('solFechaEventoWrap').style.display = esCobertura ? 'grid' : 'none';
+  document.getElementById('solLugarEventoWrap').style.display = esCobertura ? 'block' : 'none';
   if(esCobertura){ document.getElementById('solCobertura').value='Sí'; }
 }
 
@@ -3930,6 +4121,8 @@ async function enviarSolicitud(){
     plataforma: document.getElementById('solPlataforma').value.trim(),
     fecha_limite: document.getElementById('solFecha').value,
     fecha_evento: document.getElementById('solFechaEvento').value,
+    hora_evento: document.getElementById('solHoraEvento').value,
+    lugar_evento: document.getElementById('solLugarEvento').value.trim(),
     cobertura: document.getElementById('solCobertura').value,
     impresion: document.getElementById('solImpresion').value,
     prioridad: document.getElementById('solPrioridad').value,
@@ -3949,6 +4142,8 @@ async function enviarSolicitud(){
     document.getElementById('solPlataforma').value='';
     document.getElementById('solFecha').value='';
     document.getElementById('solFechaEvento').value='';
+    document.getElementById('solHoraEvento').value='';
+    document.getElementById('solLugarEvento').value='';
     document.getElementById('solCobertura').value='No';
     document.getElementById('solImpresion').value='No';
     document.getElementById('solLinks').value='';
@@ -3987,6 +4182,7 @@ async function renderMisSolicitudes(){
 
 /* El Admin ve las solicitudes pendientes */
 async function renderPendientes(){
+  renderProximosEventos('proxEventosPend');
   const cont=document.getElementById('pendientesLista');
   cont.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px">Cargando solicitudes…</div>';
   /* Cada refresco reconstruye las tarjetas, así que la selección anterior
@@ -4077,6 +4273,8 @@ function tarjetaSolicitud(s,esAdmin){
       <div>🖨️ Impresión: <b>${esc(s.impresion)}</b></div>
       <div>⚡ Prioridad: <b>${esc(s.prioridad)}</b></div>
       ${s.fecha_evento ? `<div>🎪 Fecha del evento: <b>${fmtDate(s.fecha_evento)}</b></div>` : ''}
+      ${s.hora_evento ? `<div>🕐 Hora del evento: <b>${esc(s.hora_evento)}</b></div>` : ''}
+      ${s.lugar_evento ? `<div>📍 Lugar del evento: <b>${esc(s.lugar_evento)}</b></div>` : ''}
     </div>
     <div class="sol-desc">${esc(s.descripcion)}</div>
     ${linksBloque}
@@ -4167,7 +4365,8 @@ async function procesarConversionSolicitud(s){
   const puntos=[
     'Generada desde la solicitud #'+s.id+' del gerente <b>'+esc(s.gerente_nombre||'')+'</b>',
     'Solicitud enviada el '+fmtFechaHora(s.fecha),
-    'Cobertura de evento: '+(s.cobertura||'No')+(s.fecha_evento?' — Fecha del evento: '+fmtDate(s.fecha_evento):''),
+    'Cobertura de evento: '+(s.cobertura||'No')+(s.fecha_evento?' — Fecha del evento: '+fmtDate(s.fecha_evento):'')+
+      (s.hora_evento?' a las '+esc(s.hora_evento):'')+(s.lugar_evento?' — Lugar: '+esc(s.lugar_evento):''),
     'Impresión: '+(s.impresion||'No')
   ];
   const resumenAdmin='<ul>'+puntos.map(p=>`<li>${p}</li>`).join('')+'</ul>';
@@ -4185,6 +4384,7 @@ async function procesarConversionSolicitud(s){
   const tarea={
     id:nuevoId,
     fecha_pub:s.fecha_limite||'', hora_pub:'', fecha_evento:s.fecha_evento||'',
+    hora_evento:s.hora_evento||'', lugar_evento:s.lugar_evento||'',
     responsable: asignado ? asignado.nombre : '', colaborador:s.gerente_nombre||'',
     area:'', tipo:s.tipo||'Otro', plataforma:s.plataforma||'',
     servicio:s.servicio||'Sin definir',
