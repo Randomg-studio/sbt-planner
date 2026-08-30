@@ -190,8 +190,11 @@
 
   /* ---------- TOOLBAR ---------- */
   .toolbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
-  .toolbar input,.toolbar select{width:auto;flex:0 0 auto}
+  .toolbar input,.toolbar select{width:auto;flex:0 0 auto;max-width:100%}
   .toolbar .search{flex:1 1 200px}
+  @media(max-width:560px){
+    .toolbar input,.toolbar select{flex:1 1 100%}
+  }
   .spacer{flex:1}
   .viewtoggle{display:flex;gap:3px;background:#e4e3ec;padding:3px;border-radius:9px}
   .viewtoggle button{padding:6px 13px;border-radius:7px;font-size:12.5px;
@@ -216,40 +219,50 @@
 
   /* ---------- KANBAN ---------- */
   .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
-  .kcol{background:#e4e3ec;border-radius:14px;padding:5px;
-    display:flex;flex-direction:column;min-height:160px}
-  .kcol-head{display:flex;align-items:center;gap:8px;padding:11px 12px 9px}
-  .kcol-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-  .kcol-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14.5px}
-  .kcol-count{margin-left:auto;background:#fff;color:var(--muted);
-    font-size:12px;font-weight:700;min-width:23px;height:23px;border-radius:99px;
-    display:flex;align-items:center;justify-content:center}
-  .kcol-body{display:flex;flex-direction:column;gap:9px;padding:0 5px 8px;
-    overflow-y:auto;max-height:62vh}
-  .kcard{background:var(--card);border-radius:11px;padding:12px 13px;
-    cursor:pointer;border-left:4px solid var(--st-sin);
-    transition:transform .1s,box-shadow .1s}
+  .kcol{background:#eef0f4;border-radius:14px;padding:5px;
+    display:flex;flex-direction:column;min-height:160px;
+    border-top:3px solid var(--kcol-color,var(--line))}
+  .kcol-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px;
+    background:color-mix(in srgb, var(--kcol-color,var(--line)) 12%, transparent);
+    border-radius:10px 10px 0 0;margin:-5px -5px 0}
+  .kcol-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--kcol-color,var(--line)) 22%, transparent)}
+  .kcol-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;
+    color:var(--ink)}
+  .kcol-count{margin-left:auto;background:#fff;color:var(--kcol-color,var(--muted));
+    font-size:12px;font-weight:800;min-width:24px;height:24px;border-radius:99px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--kcol-color,var(--line)) 45%, transparent)}
+  .kcol-body{display:flex;flex-direction:column;gap:10px;padding:10px 5px 8px;
+    overflow-y:auto;max-height:64vh}
+  .kcard{background:var(--card);border-radius:12px;padding:13px 14px;
+    cursor:pointer;border-left:5px solid var(--st-sin);
+    box-shadow:0 1px 2px rgba(13,0,52,.06);
+    transition:transform .12s,box-shadow .12s}
   .kcard:hover{transform:translateY(-2px);
-    box-shadow:0 10px 22px -12px rgba(13,0,52,.34)}
-  .kcard-id{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:12.5px;
-    color:var(--moss);margin-bottom:5px;display:flex;align-items:center;gap:6px}
-  .kcard-id .pri{margin-left:auto;font-size:9.5px;font-weight:700;
-    padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
-  .pri-dot-Alta{background:#f3d9ce;color:#9a3c1c}
-  .pri-dot-Media{background:#e6e5ef;color:#6a6a5d}
-  .pri-dot-Baja{background:#dde7df;color:#3d5d49}
-  .kcard h4{font-size:13.5px;font-weight:600;line-height:1.36;color:var(--ink);
-    margin-bottom:8px}
-  .kcard-foot{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
-  .kcard-foot .avatar{width:20px;height:20px;font-size:10px}
-  .kcard-foot .svc{margin-left:auto;background:#e9e8f0;padding:2px 7px;
-    border-radius:5px;font-size:10.5px;color:#5d6058}
+    box-shadow:0 12px 24px -12px rgba(13,0,52,.38)}
+  .kcard-id{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:12px;
+    color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;
+    letter-spacing:.02em}
+  .kcard-id .pri{margin-left:auto;font-size:9.5px;font-weight:800;
+    padding:3px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.05em}
+  .pri-dot-Alta{background:#fbe2da;color:#a23a1a}
+  .pri-dot-Media{background:#fdf0d2;color:#8a6a10}
+  .pri-dot-Baja{background:#dcefe1;color:#256a3f}
+  .kcard h4{font-size:14px;font-weight:700;line-height:1.36;color:var(--ink);
+    margin-bottom:9px}
+  .kcard-foot{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);
+    flex-wrap:wrap}
+  .kcard-foot .avatar{width:21px;height:21px;font-size:10px}
+  .kcard-foot .svc{margin-left:auto;background:#eef0f4;padding:3px 8px;
+    border-radius:6px;font-size:10.5px;color:#4e5566;font-weight:600}
   .kcard-date{white-space:nowrap;flex-shrink:0}
-  .kcard-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
-  .rtag{font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:5px;
+  .kcard-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+  .rtag{font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px;
     background:#e7eef0;color:#3a6373}
   .rtag-evento{background:#fde8d2;color:#8a5a1c}
-  .kempty{text-align:center;padding:24px 8px;color:#a8a89e;font-size:12px}
+  .kempty{text-align:center;padding:26px 8px;color:#a3a8b5;font-size:12px;
+    border:1.5px dashed var(--line);border-radius:10px;margin:0 5px}
   .btn-fin-rapido{margin-top:8px;width:100%;background:var(--st-publicado);color:#fff;
     border:none;border-radius:7px;padding:6px 8px;font-size:11.5px;font-weight:700;
     cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;
@@ -262,8 +275,9 @@
 
   /* ---------- TASK LIST CARDS ---------- */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:15px}
-  .task{background:var(--card);border:1px solid var(--line);border-radius:13px;
-    padding:16px 17px;display:flex;flex-direction:column;gap:9px;
+  .task{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--task-color,var(--st-sin));
+    border-radius:13px;padding:16px 17px;display:flex;flex-direction:column;gap:9px;
+    box-shadow:0 1px 2px rgba(13,0,52,.06);
     transition:transform .12s,box-shadow .12s;cursor:pointer}
   .task:hover{transform:translateY(-2px);box-shadow:0 14px 30px -16px rgba(13,0,52,.3)}
   .task-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -1083,8 +1097,8 @@
     <!-- ===================== GERENTE: CALENDARIO (solo sus propias solicitudes) ===================== -->
     <div id="view-calgerente" style="display:none">
       <div class="panel">
-        <h2>Calendario de mis solicitudes</h2>
-        <p>Aquí aparecen tus solicitudes ya aprobadas por el administrador, ubicadas en el día de la fecha de publicación que elegiste al enviarlas. Una solicitud pendiente de revisión todavía no aparece acá. Solo ves tus propias solicitudes.</p>
+        <h2>Calendario de mi programa</h2>
+        <p>Aquí ves las tareas de tu programa, ubicadas en su fecha de publicación (o la fecha del evento, si es una cobertura), con el estado real en el que están. Solo se muestran una vez que pasaron de "En proceso" — es decir, Programado, Diseñado o Publicado/Finalizado.</p>
       </div>
       <div class="chart-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -1096,7 +1110,9 @@
           <button class="btn btn-sm" onclick="calGerHoy()">Hoy</button>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:11.5px">
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-proceso);margin-right:4px"></span>Aprobada</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-programado);margin-right:4px"></span>Programado</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-finalizado);margin-right:4px"></span>Diseñado</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--st-publicado);margin-right:4px"></span>Publicado/Finalizado</span>
         </div>
         <div id="calGerGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
       </div>
@@ -1550,16 +1566,22 @@ async function deleteUserFromDB(u) {
   }
 }
 
-/* ---- GUARDAR EFEMÉRIDE ---- */
+/* ---- GUARDAR / ELIMINAR EFEMÉRIDE ----
+   IMPORTANTE: estas dos funciones YA NO atrapan sus propios errores. Antes lo
+   hacían (con un catch que devolvía null / no hacía nada), así que si
+   Supabase rechazaba el guardado o el borrado, quien llamaba no se enteraba
+   y la pantalla mostraba el cambio como hecho aunque en la nube no hubiera
+   pasado nada — el mismo problema de "se ve guardado pero no se guardó" que
+   ya se corrigió para las tareas. Ahora el error se propaga para que
+   addEfe()/delEfe() puedan revertir el cambio local y avisar con el motivo
+   real. */
 async function saveEfeToDB(e) {
-  try {
-    const res = await sbFetch('efemerides','POST',
-      {fecha:e.fecha,nombre:e.nombre,nota:e.nota});
-    return res && res[0] ? res[0].id : null;
-  } catch(err) { return null; }
+  const res = await sbFetch('efemerides','POST',
+    {fecha:e.fecha,nombre:e.nombre,nota:e.nota});
+  return res && res[0] ? res[0].id : null;
 }
 async function deleteEfeToDB(id) {
-  try { await sbFetch('efemerides','DELETE',null,'?id=eq.'+id); } catch(e) {}
+  await sbFetch('efemerides','DELETE',null,'?id=eq.'+id);
 }
 
 /* =====================================================================
@@ -1664,6 +1686,50 @@ const SERVICIOS = ['SBT','La Casa del Sabor','FONASOL (Programa de crédito de s
   'SIEF (Servicio Integral Especializado para la Prevención de la Violencia en las Familias)',
   'Vallas Publicitarias','Programas Sociales','Sin definir'];
 
+/* Relaciona cada "Servicio / Programa" con el Cargo del gerente al que le
+   pertenece, para que en el Calendario de cada gerente solo se vean las
+   tareas de su propio programa. Confirmado con el administrador:
+   - Gerente Social: Programas Sociales, Manos que alimentan corazones,
+     SAA y SIEF.
+   - Gerente de Comercialización: La Casa del Sabor, FONASOL, Lavadero,
+     Cocheras, Snack, Cancha sintética, Cementerio y Vallas Publicitarias.
+   - Gerente General: SBT (su propio programa) — además, de forma especial,
+     puede ver las tareas de CUALQUIER otro programa una vez que ya están
+     Publicado/Finalizado (ver tareaVisibleParaGerente).
+   "Sin definir" no pertenece a ningún gerente en particular. */
+const SERVICIO_CARGO_MAP = {
+  'Programas Sociales':'Gerente Social',
+  'Manos que alimentan corazones':'Gerente Social',
+  'SAA (Servicio de Apoyo Alimentario)':'Gerente Social',
+  'SIEF (Servicio Integral Especializado para la Prevención de la Violencia en las Familias)':'Gerente Social',
+  'La Casa del Sabor':'Gerente de Comercialización',
+  'FONASOL (Programa de crédito de sepultura)':'Gerente de Comercialización',
+  'Lavadero':'Gerente de Comercialización',
+  'Cocheras':'Gerente de Comercialización',
+  'Snack':'Gerente de Comercialización',
+  'Cancha sintética':'Gerente de Comercialización',
+  'Cementerio':'Gerente de Comercialización',
+  'Vallas Publicitarias':'Gerente de Comercialización',
+  'SBT':'Gerente General'
+};
+/* Estados que un gerente puede ver en su calendario — una vez que la tarea
+   ya salió de "En proceso". "Sin estado" y "No realizado" tampoco se
+   muestran: son estados internos de trabajo que no le aportan al gerente. */
+const ESTADOS_VISIBLES_GERENTE = ['Programado','Diseñado','Publicado/Finalizado'];
+/* Decide si una tarea debe verse en el calendario de un gerente con este
+   cargo. El Gerente General es un caso especial: además de su propio
+   programa (SBT), también ve las tareas de cualquier otro programa, pero
+   solo una vez que ya están Publicado/Finalizado. */
+function tareaVisibleParaGerente(t, cargoGerente){
+  if(!t.estado) return false;
+  if(cargoGerente==='Gerente General'){
+    const esSuyo = SERVICIO_CARGO_MAP[t.servicio]==='Gerente General';
+    if(esSuyo) return ESTADOS_VISIBLES_GERENTE.includes(t.estado);
+    return t.estado==='Publicado/Finalizado';
+  }
+  return SERVICIO_CARGO_MAP[t.servicio]===cargoGerente && ESTADOS_VISIBLES_GERENTE.includes(t.estado);
+}
+
 /* Relaciona el "Tipo de contenido" de una solicitud con el "Cargo" (definido
    en Usuarios) de quien debería encargarse, para asignar Responsable
    automáticamente al aprobar una solicitud. Si el tipo no tiene un cargo
@@ -1693,7 +1759,7 @@ const TABS_BY_ROLE = {
   Editor:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Lector:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Community: [['todas','Calendario de tareas'],['cpanel','Mi panel'],['metricas','Métricas'],['efemerides','Efemérides'],['calendario','Calendario'],['chat','Chat']],
-  Gerente:   [['solicitar','Solicitar trabajo'],['missolicitudes','Mis solicitudes'],['calgerente','Calendario']]
+  Gerente:   [['solicitar','Solicitar trabajo'],['missolicitudes','Mis solicitudes'],['calgerente','Calendario'],['efemerides','Efemérides']]
   /* Para reactivar el chat de los gerentes en el futuro, agregar a la lista de arriba:  ,['chat','Chat']  */
 };
 
@@ -2024,7 +2090,7 @@ function renderKanban(list){
   document.getElementById('kanban').innerHTML=COLS.map(col=>{
     const items=list.filter(t=>t.estado===col.key);
     const cards=items.length?items.map(t=>kCard(t,col.color)).join(''):`<div class="kempty">Sin tareas aquí</div>`;
-    return `<div class="kcol"><div class="kcol-head">
+    return `<div class="kcol" style="--kcol-color:${col.color}"><div class="kcol-head">
       <span class="kcol-dot" style="background:${col.color}"></span>
       <span class="kcol-title">${col.label}</span>
       <span class="kcol-count">${items.length}</span></div>
@@ -2063,7 +2129,7 @@ function renderList(list){
     const eventoChip=t.fecha_evento?`<span class="chip" style="background:#fde8d2;color:#8a5a1c">🎪 ${fmtDate(t.fecha_evento)}</span>`:'';
     const puedeFin=!selectMode && t.estado!=='Publicado/Finalizado' && puedeFinalizarRapido(t);
     const btnFin=puedeFin?`<button type="button" class="btn-fin-rapido task-fin-rapido" onclick="finalizarRapido('${t.id}',event)" title="Marcar como Publicado/Finalizado">✅ Finalizar</button>`:'';
-    return `<div class="task${sel?' task-selected':''}" ${clickAttr}>
+    return `<div class="task${sel?' task-selected':''}" style="--task-color:${ST_COLOR[t.estado]||'#999'}" ${clickAttr}>
       <div class="task-top">${check}<span class="task-id">${t.id}</span>
         <span class="badge" style="background:${ST_COLOR[t.estado]||'#999'}">${t.estado}</span></div>
       <h3>${plano(t.objetivo)?esc(plano(t.objetivo)):'<span style=\"color:#aaa\">Sin objetivo</span>'}</h3>
@@ -2981,19 +3047,38 @@ async function addEfe(){
   const n=document.getElementById('efName').value.trim();
   const nt=document.getElementById('efNote').value.trim();
   if(!f||!n){alert('Completa la fecha y el nombre del evento.');return;}
-  EFEMERIDES.push({fecha:f,nombre:n,nota:nt||'Sin nota'});
-  document.getElementById('efDate').value='';
-  document.getElementById('efName').value='';
-  document.getElementById('efNote').value='';
-  const _eId = await saveEfeToDB(EFEMERIDES[EFEMERIDES.length-1]);
-  if(_eId) EFEMERIDES[EFEMERIDES.length-1].id = _eId;
+  const nueva={fecha:f,nombre:n,nota:nt||'Sin nota'};
+  EFEMERIDES.push(nueva);
   renderEfe();
+  try{
+    const _eId = await saveEfeToDB(nueva);
+    nueva.id = _eId;
+    document.getElementById('efDate').value='';
+    document.getElementById('efName').value='';
+    document.getElementById('efNote').value='';
+  }catch(err){
+    /* No se guardó en la nube: se revierte para no dejar en pantalla algo
+       que en realidad no quedó registrado (desaparecería solo al recargar). */
+    EFEMERIDES=EFEMERIDES.filter(e=>e!==nueva);
+    renderEfe();
+    alert('❌ No se pudo guardar la efeméride en la nube.\n\nMotivo: '+err.message);
+  }
 }
 async function delEfe(i){
   const sorted=EFEMERIDES.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const target=sorted[i];
+  if(!target) return;
   EFEMERIDES=EFEMERIDES.filter(e=>e!==target);
   renderEfe();
+  try{
+    if(target.id!=null) await deleteEfeToDB(target.id);
+  }catch(err){
+    /* No se pudo borrar en la nube: se restaura para que no reaparezca sola
+       (con otro id distinto) la próxima vez que se recarguen los datos. */
+    EFEMERIDES.push(target);
+    renderEfe();
+    alert('❌ No se pudo eliminar la efeméride.\n\nMotivo: '+err.message);
+  }
 }
 
 /* ===================== PANEL DE CONTROL (ADMIN) ===================== */
@@ -3521,7 +3606,7 @@ function calGerHoy(){
   const n=new Date(); calGerY=n.getFullYear(); calGerM=n.getMonth();
   renderCalendarioGerente();
 }
-async function renderCalendarioGerente(){
+function renderCalendarioGerente(){
   const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
     'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const DIAS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -3529,19 +3614,13 @@ async function renderCalendarioGerente(){
   if(lbl) lbl.textContent=MESES[calGerM]+' '+calGerY;
   const grid=document.getElementById('calGerGrid');
   if(!grid || !CURRENT) return;
-  grid.innerHTML='<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:10px">Cargando…</div>';
 
-  /* Solo se muestran las solicitudes YA aprobadas/convertidas por el
-     administrador — mientras una solicitud sigue pendiente de revisión, no
-     aparece todavía en este calendario. */
-  let sols=[];
-  try{
-    sols = await sbFetch('solicitudes','GET',null,
-      '?gerente=eq.'+encodeURIComponent(CURRENT.usuario)+'&estado=eq.convertida&order=fecha.desc') || [];
-  }catch(e){
-    grid.innerHTML='<div style="grid-column:1/-1;color:var(--clay);font-size:13px;padding:10px">No se pudieron cargar tus solicitudes.</div>';
-    return;
-  }
+  /* Se muestran las tareas del programa que le corresponde al cargo de este
+     gerente (ver SERVICIO_CARGO_MAP / tareaVisibleParaGerente) — ya no las
+     solicitudes propias, sino las tareas reales del sistema, con su estado
+     actual. Cada una se ubica por su fecha de evento (si es una cobertura)
+     o su fecha de publicación (para flyer, video, foto, etc.). */
+  const visibles = TASKS.filter(t=>tareaVisibleParaGerente(t, CURRENT.cargo));
 
   const today=new Date(); today.setHours(0,0,0,0);
   const first=new Date(calGerY,calGerM,1);
@@ -3549,13 +3628,14 @@ async function renderCalendarioGerente(){
   const dim=new Date(calGerY,calGerM+1,0).getDate();
   const dimPrev=new Date(calGerY,calGerM,0).getDate();
 
-  /* Indexar solicitudes por su fecha de publicación deseada */
+  /* Indexar las tareas visibles por el día que les corresponde */
   const byDay={};
-  sols.forEach(s=>{
-    if(!s.fecha_limite) return;
-    const d=new Date(s.fecha_limite+'T00:00:00');
+  visibles.forEach(t=>{
+    const fecha = (t.tipo==='Cobertura de evento' && t.fecha_evento) ? t.fecha_evento : t.fecha_pub;
+    if(!fecha) return;
+    const d=new Date(fecha+'T00:00:00');
     if(d.getFullYear()===calGerY && d.getMonth()===calGerM){
-      const k=d.getDate(); (byDay[k]=byDay[k]||[]).push(s);
+      const k=d.getDate(); (byDay[k]=byDay[k]||[]).push(t);
     }
   });
 
@@ -3568,8 +3648,8 @@ async function renderCalendarioGerente(){
     const more=(byDay[d]||[]).length-4;
     html+=`<div class="cal-day${isToday?' today':''}">
       <div class="cal-dn" style="color:${isToday?'var(--gold)':'var(--muted)'}">${d}${isToday?' ●':''}</div>
-      ${evs.map(s=>`<div class="cal-event" style="background:var(--st-proceso)"
-          onclick="verSolicitudGerCal(${s.id})" title="${esc(s.campana)} — Aprobada">${esc(s.campana).slice(0,14)}</div>`).join('')}
+      ${evs.map(t=>`<div class="cal-event" style="background:${ST_COLOR[t.estado]||'#888'}"
+          onclick="verTareaGerCal('${t.id}')" title="${esc(plano(t.objetivo))} — ${esc(t.estado)}">${esc(plano(t.objetivo)).slice(0,14)}</div>`).join('')}
       ${more>0?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">+${more} más</div>`:''}
     </div>`;
   }
@@ -3578,17 +3658,24 @@ async function renderCalendarioGerente(){
     html+=`<div class="cal-day other-month"><div class="cal-dn">${d}</div></div>`;
   grid.innerHTML=html;
 }
-/* Al hacer clic en una solicitud del calendario del gerente, se muestra
-   su información rápida (el gerente no puede abrir tareas del sistema). */
-function verSolicitudGerCal(solId){
-  sbFetch('solicitudes','GET',null,'?id=eq.'+solId).then(arr=>{
-    const s=arr && arr[0];
-    if(!s) return;
-    const conv=s.estado==='convertida';
-    alert('📋 '+s.campana+'\n\nEstado: '+(conv?'Convertida en tarea'+(s.tarea_id?' ('+s.tarea_id+')':''):'Pendiente de revisión')+
-      '\n📅 Fecha de publicación: '+(s.fecha_limite?fmtDate(s.fecha_limite):'—')+
-      '\n📋 Servicio: '+(s.servicio||'—'));
-  }).catch(()=>{});
+/* Al hacer clic en una tarea del calendario del gerente, se muestra su
+   información rápida (el gerente no puede abrir ni editar tareas del
+   sistema, solo consultarlas). */
+function verTareaGerCal(taskId){
+  const t=TASKS.find(x=>x.id===taskId);
+  if(!t) return;
+  const esEvento = t.tipo==='Cobertura de evento';
+  let msg='📋 '+plano(t.objetivo)+
+    '\n\nEstado: '+t.estado+
+    '\n📋 Servicio: '+(t.servicio||'—')+
+    '\n🎬 Tipo: '+(t.tipo||'—')+
+    '\n📅 Fecha de publicación: '+(t.fecha_pub?fmtDate(t.fecha_pub):'—');
+  if(esEvento && t.fecha_evento){
+    msg+='\n🎪 Fecha del evento: '+fmtDate(t.fecha_evento);
+    if(t.hora_evento) msg+=' a las '+t.hora_evento;
+    if(t.lugar_evento) msg+='\n📍 Lugar: '+t.lugar_evento;
+  }
+  alert(msg);
 }
 
 /* ===================== CHAT ===================== */
@@ -4288,12 +4375,23 @@ function tarjetaSolicitud(s,esAdmin){
 
   const puedeSeleccionar = esAdmin && !conv;
 
+  /* Una vez convertida, el estado que se muestra ya NO se queda fijo en
+     "Convertida en tarea" para siempre — se busca la tarea real (por
+     tarea_id) y se muestra su estado ACTUAL (En proceso, Programado,
+     Diseñado, Publicado/Finalizado), con el mismo color que usa el resto
+     del sistema, para que el gerente vea el avance real de su pedido. */
+  const tareaVinculada = (conv && s.tarea_id) ? TASKS.find(t=>t.id===s.tarea_id) : null;
+  const estadoTexto = tareaVinculada ? tareaVinculada.estado : (conv ? 'Convertida en tarea' : 'Pendiente');
+  const estadoEstilo = tareaVinculada
+    ? `background:${ST_COLOR[tareaVinculada.estado]||'#999'};color:#fff`
+    : '';
+
   return `<div class="sol-card">
     <div class="sol-head">
       ${puedeSeleccionar ? `<input type="checkbox" class="sol-check-item" data-sol-id="${s.id}"
         onchange="toggleSelSolicitud(${s.id},this.checked)" style="width:auto;margin-right:4px">` : ''}
       <span class="sid">Solicitud #${s.id}</span>
-      <span class="sol-estado est-${s.estado}">${conv?'Convertida en tarea':'Pendiente'}</span>
+      <span class="sol-estado est-${s.estado}" style="${estadoEstilo}">${esc(estadoTexto)}</span>
     </div>
     <h4>${esc(s.campana)}</h4>
     <div class="sol-grid">
