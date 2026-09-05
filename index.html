@@ -862,6 +862,28 @@
       <div class="efe-list" id="efeList"></div>
     </div>
 
+    <!-- ----- CUMPLEAÑOS ----- -->
+    <div id="view-cumpleanos" style="display:none">
+      <div id="cumpleAlerts"></div>
+      <div class="panel">
+        <h2>Cumpleaños</h2>
+        <p>Registra el nombre y la fecha de nacimiento de cada persona. El sistema avisa cuando un cumpleaños se acerca (7 días o menos) y permite convertirlo directamente en la tarea del flyer.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:1;min-width:180px"><label>Nombre</label>
+            <input id="cumpleNombre" placeholder="Ej: Mariel"></div>
+          <div><label>Fecha de nacimiento</label><input type="date" id="cumpleFecha" style="width:160px"></div>
+          <button class="btn btn-sm" onclick="addCumple()">Agregar</button>
+        </div>
+      </div>
+      <div id="cumpleSelBar" style="display:none;align-items:center;gap:10px;margin:-6px 0 16px;
+        background:#eef4fc;border:1px solid var(--line);border-radius:9px;padding:9px 13px">
+        <span id="cumpleSelCount" style="font-size:13px;font-weight:600;color:var(--moss-d)"></span>
+        <button class="btn btn-sm" onclick="convertirCumpleSeleccionadosEnTarea()">🎂 Convertir seleccionados en tarea</button>
+        <button class="btn btn-sm" style="background:var(--clay)" onclick="eliminarCumpleSeleccionados()">🗑️ Eliminar seleccionados</button>
+      </div>
+      <div class="efe-list" id="cumpleList"></div>
+    </div>
+
     <!-- ----- PANEL ADMIN (CONTROL) ----- -->
     <div id="view-control" style="display:none">
       <div class="panel">
@@ -1140,6 +1162,7 @@
           background:#eef4fc;border:1px solid var(--line);border-radius:9px;padding:9px 13px">
           <span id="pendSelCount" style="font-size:13px;font-weight:600;color:var(--moss-d)"></span>
           <button class="btn btn-sm" onclick="aprobarSeleccionadas()">✅ Aprobar seleccionadas</button>
+          <button class="btn btn-sm" style="background:var(--clay)" onclick="eliminarSolicitudesSeleccionadas()">🗑️ Eliminar seleccionadas</button>
         </div>
       </div>
       <div id="proxEventosPend"></div>
@@ -1397,6 +1420,14 @@ async function cargarDatos() {
       EFEMERIDES = [...EFEMERIDES_DEFAULT];
     }
 
+    /* Cumpleaños (tabla nueva; si aún no se corrió la migración, sbFetch
+       lanza un error que se captura abajo dejando CUMPLEANOS vacío, sin
+       romper el resto del login) */
+    try {
+      const cu = await sbFetch('cumpleanos','GET',null,'?select=*&order=fecha_nacimiento');
+      CUMPLEANOS = (cu||[]).map(c=>({id:c.id,nombre:c.nombre,fecha_nacimiento:c.fecha_nacimiento,creado_por:c.creado_por||''}));
+    } catch(e3) { CUMPLEANOS = []; }
+
     activarRealtime();
     mostrarSyncBar();
   } catch(err) {
@@ -1415,7 +1446,7 @@ function activarRealtime() {
   try {
     const socket = new WebSocket(wsUrl);
     socket.onopen = () => {
-      ['tareas','efemerides'].forEach((tbl,i) => {
+      ['tareas','efemerides','cumpleanos'].forEach((tbl,i) => {
         socket.send(JSON.stringify({
           topic:'realtime:public:'+tbl, event:'phx_join',
           payload:{}, ref:String(i+1)
@@ -1429,6 +1460,7 @@ function activarRealtime() {
           const tbl = d.topic.replace('realtime:public:','');
           if (tbl==='tareas') { await recargarTareas(); }
           else if (tbl==='efemerides') { await recargarEfemerides(); }
+          else if (tbl==='cumpleanos') { await recargarCumpleanos(); }
         }
       } catch(e) {}
     };
@@ -1439,7 +1471,7 @@ function activarRealtime() {
 
 function iniciarPolling() {
   setInterval(async () => {
-    if (CURRENT) { await recargarTareas(); await recargarEfemerides(); }
+    if (CURRENT) { await recargarTareas(); await recargarEfemerides(); await recargarCumpleanos(); }
   }, 20000);
 }
 
@@ -1464,6 +1496,17 @@ async function recargarEfemerides() {
     if (ef) {
       EFEMERIDES = ef.map(e=>({id:e.id,fecha:e.fecha,nombre:e.nombre,nota:e.nota}));
       if (CURRENT && activeTab==='efemerides') renderEfe();
+    }
+  } catch(e) {}
+}
+
+async function recargarCumpleanos() {
+  try {
+    const cu = await sbFetch('cumpleanos','GET',null,'?select=*&order=fecha_nacimiento');
+    if (cu) {
+      CUMPLEANOS = cu.map(c=>({id:c.id,nombre:c.nombre,fecha_nacimiento:c.fecha_nacimiento,creado_por:c.creado_por||''}));
+      if (CURRENT && activeTab==='cumpleanos') renderCumpleanos();
+      if (CURRENT && activeTab==='calendario') renderCalendarioTab();
     }
   } catch(e) {}
 }
@@ -1583,6 +1626,14 @@ async function saveEfeToDB(e) {
 async function deleteEfeToDB(id) {
   await sbFetch('efemerides','DELETE',null,'?id=eq.'+id);
 }
+async function saveCumpleToDB(c) {
+  const res = await sbFetch('cumpleanos','POST',
+    {nombre:c.nombre, fecha_nacimiento:c.fecha_nacimiento, creado_por:c.creado_por||''});
+  return res && res[0] ? res[0].id : null;
+}
+async function deleteCumpleToDB(id) {
+  await sbFetch('cumpleanos','DELETE',null,'?id=eq.'+id);
+}
 
 /* =====================================================================
    DATOS POR DEFECTO (se usan solo la primera vez, luego viene Supabase)
@@ -1674,6 +1725,10 @@ const TASKS_DEFAULT = [
 /* Variables de trabajo en memoria */
 let USERS = [...USERS_DEFAULT];
 let EFEMERIDES = [...EFEMERIDES_DEFAULT];
+let CUMPLEANOS = [];
+/* Cargos de Gerente que además de Admin pueden ver/agregar en la pestaña
+   "Cumpleaños" (Admin siempre tiene acceso completo, sin depender de esta lista). */
+const CUMPLE_CARGOS = ['Gerente General','Gerente Social'];
 let TASKS = [...TASKS_DEFAULT];
 
 /* =====================================================================
@@ -1755,7 +1810,7 @@ const COLS = [
 
 /* ---- pestañas según rol ---- */
 const TABS_BY_ROLE = {
-  Admin:     [['todas','Todas las tareas'],['mias','Mis tareas'],['pendientes','Pendientes'],['calendario','Calendario'],['efemerides','Efemérides'],['chat','Chat'],['control','Panel de control'],['registro','Registro'],['usuarios','Usuarios']],
+  Admin:     [['todas','Todas las tareas'],['mias','Mis tareas'],['pendientes','Pendientes'],['calendario','Calendario'],['efemerides','Efemérides'],['cumpleanos','Cumpleaños'],['chat','Chat'],['control','Panel de control'],['registro','Registro'],['usuarios','Usuarios']],
   Editor:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Lector:    [['todas','Todas las tareas'],['mias','Mis tareas'],['calendario','Calendario'],['chat','Chat']],
   Community: [['todas','Calendario de tareas'],['cpanel','Mi panel'],['metricas','Métricas'],['efemerides','Efemérides'],['calendario','Calendario'],['chat','Chat']],
@@ -1930,7 +1985,14 @@ document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='
 /* ===================== TABS ===================== */
 function buildTabs(){
   const bar=document.getElementById('tabBar');
-  bar.innerHTML=TABS_BY_ROLE[CURRENT.rol].map(([k,l])=>{
+  /* Los gerentes comparten la misma lista de pestañas (TABS_BY_ROLE.Gerente),
+     pero solo el Gerente General y la Gerente Social ven además "Cumpleaños"
+     — el Admin ya la tiene incluida directamente en TABS_BY_ROLE.Admin. */
+  let tabs = TABS_BY_ROLE[CURRENT.rol].slice();
+  if(CURRENT.rol==='Gerente' && CUMPLE_CARGOS.includes(CURRENT.cargo)){
+    tabs.push(['cumpleanos','Cumpleaños']);
+  }
+  bar.innerHTML=tabs.map(([k,l])=>{
     let badge = '';
     if(k==='chat') badge = '<span class="tab-badge" id="chatBadge" style="display:none">0</span>';
     else if(k==='efemerides') badge = '<span class="tab-badge" id="efeBadge" style="display:none;background:#c98f2c">0</span>';
@@ -1942,12 +2004,13 @@ function buildTabs(){
 function switchTab(t){
   activeTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
-  ['tareas','usuarios','metricas','cpanel','efemerides','control','calendario','chat','registro','solicitar','missolicitudes','pendientes','calgerente'].forEach(v=>{
+  ['tareas','usuarios','metricas','cpanel','efemerides','cumpleanos','control','calendario','chat','registro','solicitar','missolicitudes','pendientes','calgerente'].forEach(v=>{
     const el=document.getElementById('view-'+v); if(el) el.style.display='none';});
   if(t==='usuarios'){document.getElementById('view-usuarios').style.display='block';renderUsers();}
   else if(t==='metricas'){document.getElementById('view-metricas').style.display='block';renderMetrics();}
   else if(t==='cpanel'){document.getElementById('view-cpanel').style.display='block';renderCPanel();}
   else if(t==='efemerides'){document.getElementById('view-efemerides').style.display='block';renderEfe();}
+  else if(t==='cumpleanos'){document.getElementById('view-cumpleanos').style.display='block';renderCumpleanos();}
   else if(t==='control'){document.getElementById('view-control').style.display='block';renderControl();}
   else if(t==='calendario'){document.getElementById('view-calendario').style.display='block';renderCalendarioTab();}
   else if(t==='chat'){document.getElementById('view-chat').style.display='block';abrirChat();}
@@ -3081,6 +3144,225 @@ async function delEfe(i){
   }
 }
 
+/* ===================== CUMPLEAÑOS =====================
+   A diferencia de Efemérides (fechas puntuales que se ocultan al pasar), un
+   cumpleaños se repite cada año — por eso el conteo de días no compara la
+   fecha guardada tal cual (que incluye el año de nacimiento), sino la
+   próxima vez que caen ese mismo día y mes, sea este año o el que viene. */
+function proximoCumple(fechaNacimiento){
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const partes=(fechaNacimiento||'').split('-');
+  if(partes.length<3) return null;
+  const mes=parseInt(partes[1],10)-1, dia=parseInt(partes[2],10);
+  const anio=hoy.getFullYear();
+  let prox=new Date(anio,mes,dia);
+  if(prox<hoy) prox=new Date(anio+1,mes,dia);
+  const dias=Math.round((prox-hoy)/86400000);
+  const pad=n=>String(n).padStart(2,'0');
+  const fechaProx=prox.getFullYear()+'-'+pad(prox.getMonth()+1)+'-'+pad(prox.getDate());
+  return {fecha:fechaProx, dias};
+}
+/* Acceso a la pestaña "Cumpleaños": Admin siempre; de los gerentes, solo
+   Gerente General y Gerente Social (ver CUMPLE_CARGOS). Ver y agregar,
+   pero no eliminar ni convertir en tarea — eso queda solo para Admin. */
+function puedeVerCumple(){
+  if(!CURRENT) return false;
+  if(CURRENT.rol==='Admin') return true;
+  return CURRENT.rol==='Gerente' && CUMPLE_CARGOS.includes(CURRENT.cargo);
+}
+function renderCumpleanos(){
+  if(!puedeVerCumple()) return;
+  const esAdmin = CURRENT.rol==='Admin';
+  const conProximo = CUMPLEANOS.map(c=>({c, prox:proximoCumple(c.fecha_nacimiento)}))
+    .filter(x=>x.prox)
+    .sort((a,b)=>a.prox.dias-b.prox.dias);
+
+  const soon = conProximo.filter(x=>x.prox.dias<=7);
+  document.getElementById('cumpleAlerts').innerHTML = soon.map(x=>{
+    const d=x.prox.dias;
+    return `<div class="alert-banner">🎂 ${d===0?'¡HOY!':'En '+d+' día'+(d>1?'s':'')}: <b>${esc(x.c.nombre)}</b></div>`;
+  }).join('');
+
+  /* Convertir a tarea / eliminar en lote: solo Admin */
+  const selBar=document.getElementById('cumpleSelBar');
+  if(selBar) selBar.style.display = (esAdmin && cumpleSeleccionados.size>0) ? 'flex' : 'none';
+  const selCount=document.getElementById('cumpleSelCount');
+  if(selCount) selCount.textContent = cumpleSeleccionados.size+' seleccionado'+(cumpleSeleccionados.size===1?'':'s');
+
+  const list=document.getElementById('cumpleList');
+  if(!conProximo.length){
+    list.innerHTML=`<div class="empty"><div class="big">🎂</div>Sin cumpleaños registrados.</div>`;
+    return;
+  }
+  const meses=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
+  const selectAllHtml = esAdmin ? `<label style="display:flex;align-items:center;gap:6px;font-size:13px;
+      cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" style="width:auto" onchange="toggleSelTodosCumple(this.checked)">
+      Seleccionar todos</label>` : '';
+  list.innerHTML = selectAllHtml + conProximo.map(({c,prox})=>{
+    const pieces=prox.fecha.split('-');
+    const d=prox.dias;
+    const soonCls=(d<=7)?'efe-soon':'';
+    const alert=d<=7?`<span class="efe-alert">${d===0?'HOY':'En '+d+'d'}</span>`:'';
+    const check = esAdmin ? `<input type="checkbox" style="width:auto;margin-right:9px;flex-shrink:0"
+        ${cumpleSeleccionados.has(c.id)?'checked':''}
+        onchange="toggleSelCumple(${c.id},this.checked)">` : '';
+    const btnConvertir = esAdmin ? `<button class="btn btn-sm" style="margin-top:6px"
+        onclick="convertirCumpleEnTarea(${c.id})">🎂 Convertir a tarea</button>` : '';
+    const btnDel = esAdmin ? `<button class="efe-del" onclick="delCumple(${c.id})">×</button>` : '';
+    return `<div class="efe-card ${soonCls}" style="align-items:flex-start">
+      ${check}
+      <div class="efe-date"><div class="d">${parseInt(pieces[2])}</div>
+        <div class="m">${meses[parseInt(pieces[1])-1]}</div></div>
+      <div class="efe-body" style="flex:1"><h4>${esc(c.nombre)}</h4>
+        <p>Cumple años el ${fmtDate(prox.fecha)}</p>
+        ${btnConvertir}</div>
+      ${alert}
+      ${btnDel}</div>`;
+  }).join('');
+}
+async function addCumple(){
+  if(!puedeVerCumple()) return;
+  const nombre=document.getElementById('cumpleNombre').value.trim();
+  const fecha=document.getElementById('cumpleFecha').value;
+  if(!nombre||!fecha){alert('Completa el nombre y la fecha de nacimiento.');return;}
+  const nueva={nombre, fecha_nacimiento:fecha, creado_por:CURRENT.nombre||''};
+  CUMPLEANOS.push(nueva);
+  renderCumpleanos();
+  try{
+    const _id=await saveCumpleToDB(nueva);
+    nueva.id=_id;
+    document.getElementById('cumpleNombre').value='';
+    document.getElementById('cumpleFecha').value='';
+  }catch(err){
+    CUMPLEANOS=CUMPLEANOS.filter(c=>c!==nueva);
+    renderCumpleanos();
+    alert('❌ No se pudo guardar el cumpleaños en la nube.\n\nMotivo: '+err.message+
+      '\n\nSi el motivo menciona una tabla que no existe, es probable que falte correr la migración SQL de Cumpleaños en Supabase.');
+  }
+}
+async function delCumple(id){
+  if(CURRENT.rol!=='Admin') return;
+  const target=CUMPLEANOS.find(c=>c.id===id);
+  if(!target) return;
+  CUMPLEANOS=CUMPLEANOS.filter(c=>c!==target);
+  cumpleSeleccionados.delete(id);
+  renderCumpleanos();
+  try{
+    await deleteCumpleToDB(id);
+  }catch(err){
+    CUMPLEANOS.push(target);
+    renderCumpleanos();
+    alert('❌ No se pudo eliminar el cumpleaños.\n\nMotivo: '+err.message);
+  }
+}
+
+/* ---- Selección múltiple de cumpleaños (solo Admin: convertir o eliminar en lote) ---- */
+let cumpleSeleccionados = new Set();
+function toggleSelCumple(id, checked){
+  if(checked) cumpleSeleccionados.add(id); else cumpleSeleccionados.delete(id);
+  renderCumpleanos();
+}
+function toggleSelTodosCumple(checked){
+  if(checked) CUMPLEANOS.forEach(c=>cumpleSeleccionados.add(c.id));
+  else cumpleSeleccionados.clear();
+  renderCumpleanos();
+}
+
+/* Arma y guarda la tarea del flyer de cumpleaños a partir de un registro de
+   Cumpleaños. Compartida por convertirCumpleEnTarea (una sola) y
+   convertirCumpleSeleccionadosEnTarea (varias a la vez).
+   - Responsable: la primera persona activa con cargo "Diseñador" (misma
+     regla que ya usan las solicitudes de tipo Flyer — TIPO_CARGO_MAP). Si
+     hay varios diseñadores activos, queda sin asignar para que el Admin lo
+     decida manualmente.
+   - Servicio/Programa: "SBT" (es un flyer institucional, no de un programa
+     específico).
+   - Colaborador: ninguno (a diferencia de una solicitud de gerente, aquí no
+     hay quién la pidió).
+   - Fecha de publicación = Fecha del evento = la próxima fecha en que cae
+     el cumpleaños (mismo día). */
+async function procesarConversionCumple(c){
+  const nuevoId=siguienteIdTarea();
+  const prox=proximoCumple(c.fecha_nacimiento);
+  const fechaPub = prox ? prox.fecha : '';
+  const cargoBuscado = TIPO_CARGO_MAP['Flyer'];
+  const asignado = USERS.find(u=>u.activo!==false && (u.cargo||'')===cargoBuscado);
+  const tarea={
+    id:nuevoId,
+    fecha_pub:fechaPub, hora_pub:'', fecha_evento:fechaPub, hora_evento:'', lugar_evento:'',
+    responsable: asignado ? asignado.nombre : '', colaborador:'',
+    area:'', tipo:'Flyer', plataforma:'',
+    servicio:'SBT',
+    objetivo:'<b>Flyer de cumpleaños de '+esc(c.nombre)+'</b><br>'+
+      'Crear el flyer de cumpleaños de '+esc(c.nombre)+' y tenerlo listo un día antes de la fecha de publicación.',
+    prioridad:'Media', estado:'En proceso',
+    fecha_inicio:new Date().toISOString().slice(0,10),
+    copy:'', observaciones:'',
+    resumen:'<ul><li>Generado desde Cumpleaños: <b>'+esc(c.nombre)+'</b> — Fecha de nacimiento: '+fmtDate(c.fecha_nacimiento)+'</li></ul>',
+    recursos:{}, adjuntos:[], metricas:{},
+    _upd:{who:CURRENT.nombre,when:new Date()}
+  };
+  await saveTaskToDB(tarea, true);
+  TASKS.push(tarea);
+  registrarAccion('crear', nuevoId, 'Tarea creada desde Cumpleaños de '+(c.nombre||''));
+  return nuevoId;
+}
+async function convertirCumpleEnTarea(id){
+  if(CURRENT.rol!=='Admin') return;
+  const c=CUMPLEANOS.find(x=>x.id===id);
+  if(!c) return;
+  if(!confirm('¿Convertir el cumpleaños de "'+c.nombre+'" en una tarea de flyer?\n\nSe creará una tarea nueva con los datos autocompletados.')){
+    return;
+  }
+  try{
+    const nuevoId=await procesarConversionCumple(c);
+    alert('✅ Se creó la tarea '+nuevoId+' para el flyer de cumpleaños de '+c.nombre+'.');
+    render();
+  }catch(err){
+    alert('No se pudo crear la tarea.\n'+err.message);
+  }
+}
+async function convertirCumpleSeleccionadosEnTarea(){
+  if(CURRENT.rol!=='Admin') return;
+  const ids=[...cumpleSeleccionados];
+  if(!ids.length) return;
+  if(!confirm('¿Convertir '+ids.length+' cumpleaños en tareas de flyer?')){
+    return;
+  }
+  let ok=0; const fallos=[];
+  for(const id of ids){
+    const c=CUMPLEANOS.find(x=>x.id===id);
+    if(!c) continue;
+    try{ await procesarConversionCumple(c); ok++; }
+    catch(err){ fallos.push(c.nombre+': '+err.message); }
+  }
+  cumpleSeleccionados.clear();
+  renderCumpleanos();
+  render();
+  if(fallos.length) alert('Se crearon '+ok+' de '+ids.length+' tareas.\n\nFallaron:\n'+fallos.join('\n'));
+  else alert('✅ Se crearon '+ok+' tarea'+(ok===1?'':'s')+' correctamente.');
+}
+async function eliminarCumpleSeleccionados(){
+  if(CURRENT.rol!=='Admin') return;
+  const ids=[...cumpleSeleccionados];
+  if(!ids.length) return;
+  if(!confirm('¿Eliminar '+ids.length+' cumpleaños seleccionado'+(ids.length===1?'':'s')+'? Esta acción no se puede deshacer.')){
+    return;
+  }
+  const objetivos=CUMPLEANOS.filter(c=>ids.includes(c.id));
+  CUMPLEANOS=CUMPLEANOS.filter(c=>!ids.includes(c.id));
+  cumpleSeleccionados.clear();
+  renderCumpleanos();
+  const fallos=[];
+  for(const c of objetivos){
+    try{ await deleteCumpleToDB(c.id); }
+    catch(err){ fallos.push(c.nombre+': '+err.message); CUMPLEANOS.push(c); }
+  }
+  renderCumpleanos();
+  if(fallos.length) alert('No se pudieron eliminar algunos:\n'+fallos.join('\n'));
+}
+
 /* ===================== PANEL DE CONTROL (ADMIN) ===================== */
 let ctrlPeriodo = 'all';
 let calYear = new Date().getFullYear();
@@ -3574,6 +3856,18 @@ function renderCalendarioTab(){
     }
   });
 
+  /* Cumpleaños del mes que se está mostrando (solo Admin) — se repiten cada
+     año, así que se ubican por día/mes sin importar el año guardado. */
+  const cumpleByDay={};
+  if(CURRENT && CURRENT.rol==='Admin'){
+    CUMPLEANOS.forEach(c=>{
+      const partes=(c.fecha_nacimiento||'').split('-');
+      if(partes.length<3) return;
+      const mes=parseInt(partes[1],10)-1, dia=parseInt(partes[2],10);
+      if(mes===calTabM){ (cumpleByDay[dia]=cumpleByDay[dia]||[]).push(c); }
+    });
+  }
+
   let html=DIAS.map(d=>`<div class="cal-dow">${d}</div>`).join('');
   for(let i=dow-1;i>0;i--)
     html+=`<div class="cal-day other-month"><div class="cal-dn">${dimPrev-i+1}</div></div>`;
@@ -3581,11 +3875,14 @@ function renderCalendarioTab(){
     const isToday=(new Date(calTabY,calTabM,d)).getTime()===today.getTime();
     const evs=(byDay[d]||[]).slice(0,4);
     const more=(byDay[d]||[]).length-4;
+    const cumples=cumpleByDay[d]||[];
     html+=`<div class="cal-day${isToday?' today':''}">
       <div class="cal-dn" style="color:${isToday?'var(--gold)':'var(--muted)'}">${d}${isToday?' ●':''}</div>
       ${evs.map(t=>`<div class="cal-event" style="background:${ST_COLOR[t.estado]||'#888'}"
         onclick="openTask('${t.id}')" title="${esc(plano(t.objetivo))}">${esc(t.id)}</div>`).join('')}
       ${more>0?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">+${more} más</div>`:''}
+      ${cumples.map(c=>`<div class="cal-event" style="background:#c98f2c"
+        title="Cumpleaños: ${esc(c.nombre)}">🎂 ${esc(c.nombre)}</div>`).join('')}
     </div>`;
   }
   const tot=dow-1+dim, rem=tot%7===0?0:7-(tot%7);
@@ -4609,6 +4906,34 @@ async function aprobarSeleccionadas(){
     alert('Se aprobaron '+ok+' de '+ids.length+' solicitudes.\n\nFallaron:\n'+fallos.join('\n'));
   } else {
     alert('✅ Se aprobaron '+ok+' solicitud'+(ok===1?'':'es')+' correctamente.');
+  }
+}
+
+/* Eliminar en lote solicitudes seleccionadas (rechazar/limpiar pendientes
+   que no se van a convertir en tarea). No afecta ninguna tarea ya creada;
+   si una solicitud ya fue convertida, borrarla aquí no borra su tarea. */
+async function eliminarSolicitudesSeleccionadas(){
+  const ids=[...solsSeleccionadas];
+  if(!ids.length) return;
+  if(!confirm('¿Eliminar '+ids.length+' solicitud'+(ids.length===1?'':'es')+' seleccionada'+(ids.length===1?'':'s')+'?\n\nEsta acción no se puede deshacer. Las tareas ya creadas a partir de alguna de ellas NO se eliminan.')){
+    return;
+  }
+  let ok=0; const fallos=[];
+  for(const id of ids){
+    try{
+      await sbFetch('solicitudes','DELETE',null,'?id=eq.'+id);
+      ok++;
+    }catch(err){
+      fallos.push('#'+id+': '+err.message);
+    }
+  }
+  solsSeleccionadas.clear();
+  renderPendientes();
+  actualizarBadgePend();
+  if(fallos.length){
+    alert('Se eliminaron '+ok+' de '+ids.length+' solicitudes.\n\nFallaron:\n'+fallos.join('\n'));
+  } else {
+    alert('🗑️ Se eliminaron '+ok+' solicitud'+(ok===1?'':'es')+' correctamente.');
   }
 }
 
