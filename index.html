@@ -1392,7 +1392,7 @@ async function cargarDatos() {
     } else {
       for (const u of USERS_DEFAULT) {
         try { await sbFetch('usuarios','POST',{usuario:u.usuario,nombre:u.nombre,
-          email:u.email,pass:'cambiar123',cargo:u.cargo,rol:u.rol,activo:true}); } catch(e) {}
+          email:u.email,pass:'cambiar123',cargo:u.cargo,rol:u.rol,activo:true},'?select=id'); } catch(e) {}
       }
       const us2 = await sbFetch('usuarios','GET',null,'?select=id,usuario,nombre,email,cargo,rol,activo,ultima_actividad&order=id');
       if (us2 && us2.length) USERS = us2.map(u=>
@@ -1576,6 +1576,15 @@ async function saveUserToDB(u, idx) {
   /* Payload base SIN pass — la app no puede leer/modificar contraseñas existentes */
   const payload = {usuario:u.usuario,nombre:u.nombre,email:u.email,
     cargo:u.cargo,rol:u.rol,activo:(u.activo!==false)};
+  /* Columnas que SÍ se pueden pedir de vuelta a Supabase. La columna "pass"
+     tiene el acceso de lectura (SELECT) revocado para la llave pública que
+     usa esta app — algo correcto por seguridad, para que el navegador
+     nunca pueda leer contraseñas — pero eso significa que CUALQUIER
+     consulta sin "select=" explícito (que por defecto pide todas las
+     columnas, incluida "pass") falla con error 401, aunque la operación
+     en sí (guardar, buscar) sea válida. Por eso todas las consultas de
+     esta función piden explícitamente solo estas columnas. */
+  const COLS_USUARIO = 'id,usuario,nombre,email,cargo,rol,activo';
   /* Estrategia anti-duplicados:
      1) Si el usuario tiene id de Supabase, actualizar por id (clave estable).
      2) Si no, buscar por su usuario ORIGINAL (_orig) por si lo renombró.
@@ -1586,15 +1595,17 @@ async function saveUserToDB(u, idx) {
   }
   const claveBusqueda = u._orig || u.usuario;
   const existe = await sbFetch('usuarios','GET',null,
-    '?usuario=eq.'+encodeURIComponent(claveBusqueda));
+    '?usuario=eq.'+encodeURIComponent(claveBusqueda)+'&select='+COLS_USUARIO);
   if (existe && existe.length > 0) {
     await sbFetch('usuarios','PATCH',payload,'?id=eq.'+existe[0].id);
     if (idx!=null && USERS[idx]) USERS[idx].id = existe[0].id;
     return existe[0].id;
   } else {
-    /* Usuario nuevo: SÍ se manda pass (al crear es necesario) */
+    /* Usuario nuevo: SÍ se manda pass (al crear es necesario), pero se pide
+       de vuelta solo COLS_USUARIO (sin "pass") para no chocar con la
+       restricción de lectura de esa columna. */
     const payloadNuevo = {...payload, pass: u.pass || 'equipo123'};
-    const res = await sbFetch('usuarios','POST',payloadNuevo);
+    const res = await sbFetch('usuarios','POST',payloadNuevo,'?select='+COLS_USUARIO);
     const nuevoId = (res && res[0]) ? res[0].id : null;
     if (nuevoId!=null && idx!=null && USERS[idx]) USERS[idx].id = nuevoId;
     return nuevoId;
